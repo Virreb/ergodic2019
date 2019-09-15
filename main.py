@@ -1,10 +1,12 @@
 import api
 import solutionHelper
+import json
 
-# TODO: pip install requests
+with open('credentials.json', 'r') as f:
+    credentials = json.load(f)
 
-api_key = "YOUR-API-KEY-HERE"                 # TODO: Enter your API key
-image_folder_path = 'path/to/imageFolder'     # TODO: Enter the path to your Image Folder
+api_key = credentials['api-token']
+image_folder_path = 'data/test/Images'
 
 
 def main():
