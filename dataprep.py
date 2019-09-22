@@ -39,7 +39,7 @@ class ToTensor:
         bitmap = sample['bitmap']
 
         return {'image': self._built_in_to_tensor(image),
-                'bitmap': (255*self._built_in_to_tensor(bitmap)).int()}
+                'bitmap': (255*self._built_in_to_tensor(bitmap)).long().squeeze()}
 
 
 class Resize:
@@ -56,13 +56,3 @@ class Resize:
         bmp = self._built_in_resize(bitmap)
 
         return {'image': img, 'bitmap': bmp}
-
-dataset = GLOBHEDataset('train')
-test = dataset[0]
-resize = Resize((512, 512))
-test_1 = resize(test)
-
-
-to_tensor = ToTensor()
-test_2 = to_tensor(test_1)
-print('hej')
