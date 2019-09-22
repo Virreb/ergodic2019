@@ -124,6 +124,7 @@ if __name__=='__main__':
     from torchsummary import summary
     net = UNet(3, 4).float()
     net = net.to(device)
+    in_arr = in_arr.to(device)
     print('loaded custom')
     #for param in net.resnet.parameters():
     #    param.requires_grad = False
