@@ -50,9 +50,9 @@ def get_images(original, mask, predicted):
 
     import matplotlib.pyplot as plt
 
-    original = original.numpy()
-    mask = mask.numpy()
-    predicted = predicted.numpy()
+    original = original.to('cpu').numpy()[0].transpose([1, 2, 0])
+    mask = mask.to('cpu').numpy()[0]
+    predicted = predicted.to('cpu').numpy()[0]
 
     diff = predicted - mask
 

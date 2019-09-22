@@ -10,6 +10,8 @@ from dataprep import GLOBHEDataset, ToTensor, Resize
 import os
 from UnetModel import UNet
 import numpy as np
+import torch.nn.functional as F
+import plot
 import shutil
 
 if os.path.exists('models') is False:
@@ -92,11 +94,12 @@ for epoch in range(num_epochs):
 
     net.train()
 
+    _, output_for_plot = F.softmax(network_output, dim=1).max(1)
     print(f'{epoch}/{num_epochs}')
 
     # print image to tensorboard
-    
-
+    fig = plot.get_images(original=image_input, mask=bitmap, predicted=output_for_plot)
+    writer.add_figure('Images', fig, epoch)
 
     writer.flush()
 
