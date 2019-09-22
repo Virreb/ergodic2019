@@ -59,7 +59,7 @@ for image_name in tqdm(train_images):
 
         assert np.alltrue(A[:image_array.shape[0], :image_array.shape[1], :] == image_array[:image_array.shape[0], :image_array.shape[1], :])
 
-        imageio.imsave(image_nm, A.astype(int))
+        imageio.imsave(image_nm, A.astype(np.uint8))
 
     image_name = image_name.replace('.jpg', '.png')
     shutil.copy(raw_mask_path + '/' + image_name, train_folder + '/masks/' + image_name)
@@ -76,7 +76,7 @@ for image_name in tqdm(val_images):
 
         assert np.alltrue(A[:image_array.shape[0], :image_array.shape[1], :] == image_array[:image_array.shape[0], :image_array.shape[1], :])
 
-        imageio.imsave(image_nm, A.astype(int))
+        imageio.imsave(image_nm, A.astype(np.uint8))
 
     image_name = image_name.replace('.jpg', '.png')
     shutil.copy(raw_mask_path + '/' + image_name, val_folder + '/masks/' + image_name)
@@ -93,7 +93,7 @@ for image_name in tqdm(test_images):
 
         assert np.alltrue(A[:image_array.shape[0], :image_array.shape[1], :] == image_array[:image_array.shape[0], :image_array.shape[1], :])
 
-        imageio.imsave(image_nm, A.astype(int))
+        imageio.imsave(image_nm, A.astype(np.uint8))
 
     image_name = image_name.replace('.jpg', '.png')
     shutil.copy(raw_mask_path + '/' + image_name, test_folder + '/masks/' + image_name)
