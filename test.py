@@ -1,18 +1,63 @@
-from plot import show_image
-
-# show_image(base='data/raw', name='coxs_1_02_02')
 
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
-from dataprep import GLOBHEDataset, ToTensor, Resize
+from dataprep import GLOBHEDataset, ToTensor, Resize, split_data_to_train_val_test
 import os
 from UnetModel import UNet
 import numpy as np
 import torch.nn.functional as F
 import plot
-import shutil
+import tqdm
+
+# TODO: Create better structure for model pipeline
+# start tensorboard with tensorboard --logdir='runs'
+
+
+def get_percentages_from_output(output):
+    """
+    Work in progress :)
+
+    :param output:
+    :return:
+    """
+
+    output_size = output.size()
+    print(output_size)
+    total = output_size[1]*output_size[2]
+    keys = ['building_percentage', 'water_percentage', 'road_percentage']
+    perc_dict = {}
+    perc_list = []
+
+    # Loop over all results in the batch and sum the error? mean?
+    for idx in range(output_size[0]):
+        percentage = np.sum(output[idx, :, :]) / total * 100
+        perc_dict[keys[idx]] = percentage
+        perc_list.append(percentage)
+
+    return perc_dict, perc_list
+
+
+def get_percentage_error(predicted, real):
+    """
+    Testing :)
+
+    :param predicted:
+    :param real:
+    :return:
+    """
+    prec_error = {}
+    for key in predicted.keys():
+        prec_error[key] = predicted[key] - real[key]
+
+    total_error = sum(prec_error.values())
+
+    return prec_error, total_error
+
+
+# split_data_to_train_val_test(raw_base_path='data_raw/Training_dataset', new_base_path='data', val_ratio=0.3, test_ratio=0.2)
+# exit(0)
 
 if os.path.exists('models') is False:
     os.mkdir('models')
@@ -24,7 +69,7 @@ if os.path.exists('models/trained') is False:
 #     shutil.rmtree('runs')
 
 
-output_size = (256, 256)
+image_size = (256, 256)
 # output_size = (512, 512)
 # output_size = (1024, 1024)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -41,68 +86,85 @@ print('Batch size:', batch_size)
 # Transforms
 GLOBHE_transforms = transforms.Compose(
     [
-        Resize(output_size),
+        Resize(image_size),
         ToTensor()
     ]
 )
 
-train_dataset = GLOBHEDataset('train', transform=GLOBHE_transforms)
-test_dataset = GLOBHEDataset('test', transform=GLOBHE_transforms)
-val_dataset = GLOBHEDataset('val', transform=GLOBHE_transforms)
+train_dataset = GLOBHEDataset('data', 'train', transform=GLOBHE_transforms)
+test_dataset = GLOBHEDataset('data', 'test', transform=GLOBHE_transforms)
+val_dataset = GLOBHEDataset('data', 'val', transform=GLOBHE_transforms)
 
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=nbr_cpu)
 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=nbr_cpu)
 val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True, num_workers=nbr_cpu)
 
-net = UNet(3, 4).float()
-net = net.to(device)
+model = UNet(3, 4).float()
+model = model.to(device)
 
 criterion = torch.nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(net.parameters(), lr=learning_rate)
+optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
 # init tensorboard
 writer = SummaryWriter()
 
 for epoch in range(num_epochs):
-    epoch_loss = []
-    for bath_index, sample in enumerate(train_loader):
-        image_input = sample['image'].to(device)
-        bitmap = sample['bitmap'].to(device)
-        # out_arr = net(image_input)
+    print(f'\nEpoch {epoch+1}/{num_epochs}')
+    train_loss = []
+    train_perc_error = []
+
+    print(f'Training')
+    for batch in train_loader:
+        image_input = batch['image'].to(device)
+        bitmap = batch['bitmap'].to(device)
 
         optimizer.zero_grad()
-        network_output = net(image_input)
+        output = model(image_input)
 
-        loss = criterion(network_output, bitmap)
+        loss = criterion(output, bitmap)
         loss.backward()
         optimizer.step()
-        epoch_loss.append(loss.data.item())
 
-    writer.add_scalar('Loss/train', np.mean(epoch_loss), epoch)
-    net.eval()
+        # get percentages
+        _, output_integer = F.softmax(output, dim=1).max(1)
+        # predicted_perc, _ = get_percentages_from_output(output_integer)
+        # perc_error, total_perc_error = get_percentage_error(predicted_perc, batch['percentage'])
+        # train_perc_error.append(total_perc_error)
+
+        train_loss.append(loss.data.item())
+
+    # writer.add_scalar('Perc error/train', np.mean(train_perc_error), epoch)
+    writer.add_scalar('Loss/train', np.mean(train_loss), epoch)
+
+    print(f'Evaluating')
     eval_loss = []
+    eval_perc_error = []
+    model.eval()
     with torch.no_grad():
-        for bath_index, sample in enumerate(val_loader):
-            image_input = sample['image'].to(device)
-            bitmap = sample['bitmap'].to(device)
+        for batch in val_loader:
+            image_input = batch['image'].to(device)
+            bitmap = batch['bitmap'].to(device)
 
-            network_output = net(image_input)
-            loss = criterion(network_output, bitmap)
+            output = model(image_input)
+            loss = criterion(output, bitmap)
             eval_loss.append(loss.data.item())
 
+            # get percentages
+            _, output_integer = F.softmax(output, dim=1).max(1)
+            # predicted_perc, _ = get_percentages_from_output(output_integer)
+            # perc_error, total_perc_error = get_percentage_error(predicted_perc, batch['percentage'])
+            # eval_perc_error.append(total_perc_error)
+
+        # writer.add_scalar('Perc error/val', np.mean(eval_perc_error), epoch)
         writer.add_scalar('Loss/val', np.mean(eval_loss), epoch)
 
-    net.train()
-
-    _, output_for_plot = F.softmax(network_output, dim=1).max(1)
-    print(f'{epoch}/{num_epochs}')
+    model.train()
 
     # print image to tensorboard
-    fig = plot.get_images(original=image_input, mask=bitmap, predicted=output_for_plot)
-    writer.add_figure('Images', fig, epoch)
+    fig = plot.get_images(original=image_input, mask=bitmap, predicted=output_integer)
+    writer.add_figure(f'Epoch {epoch+1}', fig, epoch)
 
     writer.flush()
 
-    torch.save(net.state_dict(), f'models/trained/{model_name}')
-
+    torch.save(model.state_dict(), f'models/trained/{model_name}')
 

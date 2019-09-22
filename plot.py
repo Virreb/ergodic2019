@@ -49,6 +49,14 @@ def show_image(base, name, predicted=None):
 def get_images(original, mask, predicted):
 
     import matplotlib.pyplot as plt
+    from matplotlib import colors
+    # cmap = plt.get_cmap('Set1', 4)
+
+    # TODO: Only plot when value over 0 at mask?
+
+    cmap = colors.ListedColormap(['green', 'red', 'purple', 'blue'])
+    bounds = [-0.1, 0.1, 1.1, 2.1, 3.1]
+    norm = colors.BoundaryNorm(bounds, cmap.N)
 
     original = original.to('cpu').numpy()[0].transpose([1, 2, 0])
     mask = mask.to('cpu').numpy()[0]
@@ -63,15 +71,15 @@ def get_images(original, mask, predicted):
     ax_raw = fig.add_subplot(2, 2, 4)
 
     ax_mask.imshow(original)
-    ax_mask.imshow(mask, alpha=0.4)
+    ax_mask.imshow(mask, alpha=0.4, cmap=cmap, norm=norm)
     ax_mask.title.set_text('Mask')
 
     ax_pred.imshow(original)
-    ax_pred.imshow(predicted, alpha=0.4)
+    ax_pred.imshow(predicted, alpha=0.4, cmap=cmap, norm=norm)
     ax_pred.title.set_text('Predicted')
 
     ax_diff.imshow(original)
-    ax_diff.imshow(diff, alpha=0.4)
+    ax_diff.imshow(diff, alpha=0.4, cmap=cmap, norm=norm)
     ax_diff.title.set_text('Diff')
 
     ax_raw.imshow(original)
