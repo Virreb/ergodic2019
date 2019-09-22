@@ -107,3 +107,5 @@ ImageFolder/*
 data/
 credentials.json
 .idea/
+data_raw/
+dataset.zip
