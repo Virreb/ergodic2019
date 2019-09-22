@@ -69,13 +69,13 @@ if os.path.exists('models/trained') is False:
 #     shutil.rmtree('runs')
 
 
-image_size = (256, 256)
+image_size = (128, 128)
 # output_size = (512, 512)
 # output_size = (1024, 1024)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 nbr_cpu = os.cpu_count() - 2
-batch_size = 8
-num_epochs = 5
+batch_size = 2
+num_epochs = 2
 learning_rate = 0.0005
 model_name = 'test_net.pth'
 
@@ -92,17 +92,18 @@ GLOBHE_transforms = transforms.Compose(
 )
 
 train_dataset = GLOBHEDataset('data', 'train', transform=GLOBHE_transforms)
-test_dataset = GLOBHEDataset('data', 'test', transform=GLOBHE_transforms)
+#test_dataset = GLOBHEDataset('data', 'test', transform=GLOBHE_transforms)
 val_dataset = GLOBHEDataset('data', 'val', transform=GLOBHE_transforms)
 
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=nbr_cpu)
-test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=nbr_cpu)
+#test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=nbr_cpu)
 val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True, num_workers=nbr_cpu)
 
 model = UNet(3, 4).float()
 model = model.to(device)
 
 criterion = torch.nn.CrossEntropyLoss()
+mse_criterion = torch.nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
 # init tensorboard
@@ -119,7 +120,7 @@ for epoch in range(num_epochs):
         bitmap = batch['bitmap'].to(device)
 
         optimizer.zero_grad()
-        output = model(image_input)
+        output, class_fraction = model(image_input)
 
         loss = criterion(output, bitmap)
         loss.backward()
@@ -145,7 +146,7 @@ for epoch in range(num_epochs):
             image_input = batch['image'].to(device)
             bitmap = batch['bitmap'].to(device)
 
-            output = model(image_input)
+            output, class_fraction = model(image_input)
             loss = criterion(output, bitmap)
             eval_loss.append(loss.data.item())
 
