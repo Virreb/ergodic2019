@@ -173,3 +173,6 @@ def generate_integer_bitmaps(rgb_bitmap):
     integer_bitmap.astype(np.uint8)
 
     return integer_bitmap
+
+if __name__ == '__main__':
+    split_data_to_train_val_test(raw_base_path='data_raw/Training_dataset', new_base_path='data', val_ratio=0.3, test_ratio=0)
