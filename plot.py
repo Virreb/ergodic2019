@@ -45,4 +45,3 @@ def show_image(base, name, predicted=None):
 
     plt.show()
 
-show_image(base='data/raw', name='coxs_1_02_02')
