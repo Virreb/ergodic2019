@@ -1,4 +1,8 @@
 from torch.utils.data import Dataset
+import numpy as np
+from PIL import Image
+import PIL
+import json
 
 
 class GLOBHEDataset(Dataset):
@@ -14,9 +18,6 @@ class GLOBHEDataset(Dataset):
         return len(self.image_names)
 
     def __getitem__(self, idx):
-        from PIL import Image
-        import json
-
         with open(self.percentage_paths[idx], 'r') as f:
             perc = json.load(f)
 
@@ -30,6 +31,64 @@ class GLOBHEDataset(Dataset):
             sample = self.transform(sample)
 
         return sample
+
+
+class RandomCrop:
+    def __init__(self, output_size):
+        self.output_size = output_size
+
+    def __call__(self, sample):
+        image = sample['image']
+        bitmap = sample['bitmap']
+        w, h = bitmap.size
+        w_new, h_new = self.output_size
+        new_corner_x = np.random.randint(0, 1+w-w_new)
+        new_corner_y = np.random.randint(0, 1+h-h_new)
+
+        cropped_bitmap = bitmap.crop((new_corner_x, new_corner_y, new_corner_x+w_new, new_corner_y+h_new))
+        cropped_image = image.crop((new_corner_x, new_corner_y, new_corner_x+w_new, new_corner_y+h_new))
+        sample['image'] = cropped_image
+        sample['bitmap'] = cropped_bitmap
+        return sample
+
+
+class RandomFlip:
+    def __call__(self, sample):
+
+        image = sample['image']
+        bitmap = sample['bitmap']
+
+        r = np.random.rand()
+        if r < 0.5:
+            image = image.transpose(Image.FLIP_LEFT_RIGHT)
+            bitmap = bitmap.transpose(Image.FLIP_LEFT_RIGHT)
+
+        r = np.random.rand()
+        if r < 0.5:
+            image = image.transpose(Image.FLIP_TOP_BOTTOM)
+            bitmap = bitmap.transpose(Image.FLIP_TOP_BOTTOM)
+
+        sample['image'] = image
+        sample['bitmap'] = bitmap
+        return sample
+
+
+class RandomRotate:
+    def __init__(self):
+        self.possible_rotations = [Image.ROTATE_90, Image.ROTATE_180, Image.ROTATE_270, None]
+
+    def __call__(self, sample):
+        image = sample['image']
+        bitmap = sample['bitmap']
+        rotation = np.random.choice(self.possible_rotations)
+        if rotation is not None:
+            image = image.transpose(rotation)
+            bitmap = bitmap.transpose(rotation)
+
+        sample['image'] = image
+        sample['bitmap'] = bitmap
+        return sample
+
 
 
 class ToTensor:
@@ -175,4 +234,8 @@ def generate_integer_bitmaps(rgb_bitmap):
     return integer_bitmap
 
 if __name__ == '__main__':
-    split_data_to_train_val_test(raw_base_path='data_raw/Training_dataset', new_base_path='data', val_ratio=0.3, test_ratio=0)
+    #split_data_to_train_val_test(raw_base_path='data_raw/Training_dataset', new_base_path='data', val_ratio=0.3, test_ratio=0)
+    train_dataset = GLOBHEDataset('data', 'train')
+    sample = train_dataset[0]
+    rc = RandomFlip()
+    rc(sample)
