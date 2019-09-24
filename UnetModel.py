@@ -113,7 +113,7 @@ class UNet(nn.Module):
         x = self.up4(x, x1)
         x = self.outc(x)
 
-        soft_max_activation = F.softmax(x)
+        soft_max_activation = F.softmax(x, dim=1)
         class_sum = torch.sum(soft_max_activation, dim=2)
         class_sum = torch.sum(class_sum, dim=2)
         class_fraction = class_sum/(soft_max_activation.shape[2] * soft_max_activation.shape[3])

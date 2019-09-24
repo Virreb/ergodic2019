@@ -3,7 +3,7 @@ import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
-from dataprep import GLOBHEDataset, ToTensor, Resize, split_data_to_train_val_test
+from dataprep import GLOBHEDataset, ToTensor, Resize, RandomCrop, RandomFlip, RandomRotate  # split_data_to_train_val_test
 import os
 from UnetModel import UNet
 import numpy as np
@@ -84,16 +84,18 @@ print('Number of CPUs:', nbr_cpu)
 print('Batch size:', batch_size)
 
 # Transforms
-GLOBHE_transforms = transforms.Compose(
-    [
-        Resize(image_size),
+GLOBHE_transforms_train = transforms.Compose([
+        RandomCrop(image_size),
+        RandomFlip(),
+        RandomRotate(),
         ToTensor()
-    ]
-)
+    ])
 
-train_dataset = GLOBHEDataset('data', 'train', transform=GLOBHE_transforms)
+GLOBHE_transforms_val = transforms.Compose([ToTensor()])
+
+train_dataset = GLOBHEDataset('data', 'train', transform=GLOBHE_transforms_train)
 #test_dataset = GLOBHEDataset('data', 'test', transform=GLOBHE_transforms)
-val_dataset = GLOBHEDataset('data', 'val', transform=GLOBHE_transforms)
+val_dataset = GLOBHEDataset('data', 'val', transform=GLOBHE_transforms_val)
 
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=nbr_cpu)
 #test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=nbr_cpu)

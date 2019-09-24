@@ -63,11 +63,6 @@ class RandomFlip:
             image = image.transpose(Image.FLIP_LEFT_RIGHT)
             bitmap = bitmap.transpose(Image.FLIP_LEFT_RIGHT)
 
-        r = np.random.rand()
-        if r < 0.5:
-            image = image.transpose(Image.FLIP_TOP_BOTTOM)
-            bitmap = bitmap.transpose(Image.FLIP_TOP_BOTTOM)
-
         sample['image'] = image
         sample['bitmap'] = bitmap
         return sample
@@ -88,7 +83,6 @@ class RandomRotate:
         sample['image'] = image
         sample['bitmap'] = bitmap
         return sample
-
 
 
 class ToTensor:
