@@ -3,13 +3,13 @@ import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
-from dataprep import GLOBHEDataset, ToTensor, Resize, RandomCrop, RandomFlip, RandomRotate  # split_data_to_train_val_test
-import os
+from dataprep import GLOBHEDataset, ToTensor, Resize, RandomCrop, RandomFlip, RandomRotate
+import os, json
 from UnetModel import UNet
 import numpy as np
 import torch.nn.functional as F
 import plot
-import tqdm
+import datetime
 
 # TODO: Create better structure for model pipeline
 # start tensorboard with tensorboard --logdir='runs'
@@ -68,24 +68,32 @@ if os.path.exists('models/trained') is False:
 # if os.path.exists('runs') is True:
 #     shutil.rmtree('runs')
 
-
-image_size = (128, 128)
-# output_size = (512, 512)
-# output_size = (1024, 1024)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-nbr_cpu = os.cpu_count() - 2
-batch_size = 2
-num_epochs = 2
-learning_rate = 0.0005
-model_name = 'test_net.pth'
+model_name = f'unet_{datetime.datetime.today().strftime("%Y-%m-%d_%H%M")}.pth'
 
-print('GPU available:', torch.cuda.is_available())
-print('Number of CPUs:', nbr_cpu)
-print('Batch size:', batch_size)
+params = {
+    'learning_rate': 0.0002,
+    'num_epochs': 100,
+    'nbr_cpu': os.cpu_count() - 1,
+    'device': device,
+    'model_name': model_name,
+    'image_size': {
+        'train': (256, 256),
+        'val': (1024, 1024),
+        'test': (1024, 1024)
+    },
+    'batch_size': {
+        'train': 8,
+        'val': 2,
+        'test': 2,
+    },
+}
+
+print('GPU available:', torch.cuda.is_available(), ' \nNumber of CPUs:', params['nbr_cpu'])
 
 # Transforms
 GLOBHE_transforms_train = transforms.Compose([
-        RandomCrop(image_size),
+        RandomCrop(params['image_size']['train']),
         RandomFlip(),
         RandomRotate(),
         ToTensor()
@@ -94,27 +102,28 @@ GLOBHE_transforms_train = transforms.Compose([
 GLOBHE_transforms_val = transforms.Compose([ToTensor()])
 
 train_dataset = GLOBHEDataset('data', 'train', transform=GLOBHE_transforms_train)
-#test_dataset = GLOBHEDataset('data', 'test', transform=GLOBHE_transforms)
+# test_dataset = GLOBHEDataset('data', 'test', transform=GLOBHE_transforms)
 val_dataset = GLOBHEDataset('data', 'val', transform=GLOBHE_transforms_val)
 
-train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=nbr_cpu)
-#test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=nbr_cpu)
-val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True, num_workers=nbr_cpu)
+train_loader = DataLoader(train_dataset, batch_size=params['batch_size']['train'], shuffle=True, num_workers=params['nbr_cpu'])
+# test_loader = DataLoader(test_dataset, batch_size=params['batch_size']['test'], shuffle=True, num_workers=params['nbr_cpu'])
+val_loader = DataLoader(val_dataset, batch_size=params['batch_size']['val'], shuffle=True, num_workers=params['nbr_cpu'])
 
 model = UNet(3, 4).float()
 model = model.to(device)
 
 criterion = torch.nn.CrossEntropyLoss()
 mse_criterion = torch.nn.MSELoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+optimizer = torch.optim.Adam(model.parameters(), lr=params['learning_rate'])
 
 # init tensorboard
 writer = SummaryWriter()
 
-for epoch in range(num_epochs):
-    print(f'\nEpoch {epoch+1}/{num_epochs}')
+best_val_loss = 1000000
+for epoch in range(params['num_epochs']):
+    print(f'\nEpoch {epoch+1}/{params["num_epochs"]}')
     train_loss = []
-    train_perc_error = []
+    # train_perc_error = []
 
     print(f'Training')
     for batch in train_loader:
@@ -140,8 +149,8 @@ for epoch in range(num_epochs):
     writer.add_scalar('Loss/train', np.mean(train_loss), epoch)
 
     print(f'Evaluating')
-    eval_loss = []
-    eval_perc_error = []
+    val_loss = []
+    # val_perc_error = []
     model.eval()
     with torch.no_grad():
         for batch in val_loader:
@@ -150,7 +159,7 @@ for epoch in range(num_epochs):
 
             output, class_fraction = model(image_input)
             loss = criterion(output, bitmap)
-            eval_loss.append(loss.data.item())
+            val_loss.append(loss.data.item())
 
             # get percentages
             _, output_integer = F.softmax(output, dim=1).max(1)
@@ -158,8 +167,9 @@ for epoch in range(num_epochs):
             # perc_error, total_perc_error = get_percentage_error(predicted_perc, batch['percentage'])
             # eval_perc_error.append(total_perc_error)
 
-        # writer.add_scalar('Perc error/val', np.mean(eval_perc_error), epoch)
-        writer.add_scalar('Loss/val', np.mean(eval_loss), epoch)
+    # writer.add_scalar('Perc error/val', np.mean(eval_perc_error), epoch)
+    epoch_val_loss = np.mean(val_loss)
+    writer.add_scalar('Loss/val', np.mean(epoch_val_loss), epoch)
 
     model.train()
 
@@ -169,5 +179,14 @@ for epoch in range(num_epochs):
 
     writer.flush()
 
-    torch.save(model.state_dict(), f'models/trained/{model_name}')
+    if epoch_val_loss < best_val_loss:
+        torch.save(model.state_dict(), f'models/trained/{model_name}')
+        print('New best model! Current loss:', epoch_val_loss)
+        best_val_loss = epoch_val_loss
+        # TODO: also save the params? Should include the transform names? Maybe also the loss?
 
+    if epoch_val_loss > epoch_val_loss:
+        # if this happens X epochs in a row, abort?
+        print('Overfitting?')
+
+print(f'All done! Best validation loss was {best_val_loss}. Saved to file {model_name}.')
