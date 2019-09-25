@@ -3,58 +3,17 @@ import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
-from dataprep import GLOBHEDataset, ToTensor, Resize, RandomCrop, RandomFlip, RandomRotate
-import os, json
+from dataprep import GLOBHEDataset, ToTensor, RandomCrop, RandomFlip, RandomRotate
+import os
 from UnetModel import UNet
 import numpy as np
 import torch.nn.functional as F
 import plot
 import datetime
+from help_functions import calculate_segmentation_percentages, calculate_segmentation_percentage_error
 
 # TODO: Create better structure for model pipeline
 # start tensorboard with tensorboard --logdir='runs'
-
-
-def get_percentages_from_output(output):
-    """
-    Work in progress :)
-
-    :param output:
-    :return:
-    """
-
-    output_size = output.size()
-    print(output_size)
-    total = output_size[1]*output_size[2]
-    keys = ['building_percentage', 'water_percentage', 'road_percentage']
-    perc_dict = {}
-    perc_list = []
-
-    # Loop over all results in the batch and sum the error? mean?
-    for idx in range(output_size[0]):
-        percentage = np.sum(output[idx, :, :]) / total * 100
-        perc_dict[keys[idx]] = percentage
-        perc_list.append(percentage)
-
-    return perc_dict, perc_list
-
-
-def get_percentage_error(predicted, real):
-    """
-    Testing :)
-
-    :param predicted:
-    :param real:
-    :return:
-    """
-    prec_error = {}
-    for key in predicted.keys():
-        prec_error[key] = predicted[key] - real[key]
-
-    total_error = sum(prec_error.values())
-
-    return prec_error, total_error
-
 
 # split_data_to_train_val_test(raw_base_path='data_raw/Training_dataset', new_base_path='data', val_ratio=0.3, test_ratio=0.2)
 # exit(0)
@@ -71,7 +30,7 @@ if os.path.exists('models/trained') is False:
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model_name = f'unet_{datetime.datetime.today().strftime("%Y-%m-%d_%H%M")}.pth'
 
-params = {
+params_victor = {
     'learning_rate': 0.0002,
     'num_epochs': 100,
     'nbr_cpu': os.cpu_count() - 1,
@@ -88,6 +47,26 @@ params = {
         'test': 2,
     },
 }
+
+params_isak = {
+    'learning_rate': 0.0002,
+    'num_epochs': 100,
+    'nbr_cpu': os.cpu_count() - 1,
+    'device': device,
+    'model_name': model_name,
+    'image_size': {
+        'train': (256, 256),
+        'val': (1024, 1024),
+        'test': (1024, 1024)
+    },
+    'batch_size': {
+        'train': 8,
+        'val': 2,
+        'test': 2,
+    },
+}
+
+params = params_victor
 
 print('GPU available:', torch.cuda.is_available(), ' \nNumber of CPUs:', params['nbr_cpu'])
 
@@ -123,7 +102,7 @@ best_val_loss = 1000000
 for epoch in range(params['num_epochs']):
     print(f'\nEpoch {epoch+1}/{params["num_epochs"]}')
     train_loss = []
-    # train_perc_error = []
+    val_percentage_error = []
 
     print(f'Training')
     for batch in train_loader:
@@ -131,26 +110,36 @@ for epoch in range(params['num_epochs']):
         bitmap = batch['bitmap'].to(device)
 
         optimizer.zero_grad()
-        output, class_fraction = model(image_input)
+        output, class_fraction = model(image_input)     # TODO: Use percentage as keyword from segmentation and fractions as keyword for raw prediction?
 
         loss = criterion(output, bitmap)
         loss.backward()
         optimizer.step()
 
-        # get percentages
-        _, output_integer = F.softmax(output, dim=1).max(1)
-        # predicted_perc, _ = get_percentages_from_output(output_integer)
-        # perc_error, total_perc_error = get_percentage_error(predicted_perc, batch['percentage'])
-        # train_perc_error.append(total_perc_error)
+        # TODO: Create loss function with predicted class fractions aswel?
 
+        output_soft = F.softmax(output, dim=1)
+        # _, output_integer = output_soft.max(1)    # TODO: Evaluate nbr correct pixels instead?
+
+        segmentation_percentages = calculate_segmentation_percentages(output_soft)
+        batch_seg_perc_error, total_batch_seg_perc_error = \
+            calculate_segmentation_percentage_error(segmentation_percentages, batch['percentage'])
+
+        val_percentage_error.append(batch_seg_perc_error)
         train_loss.append(loss.data.item())
 
-    # writer.add_scalar('Perc error/train', np.mean(train_perc_error), epoch)
+    # add perc error for every class in plot
+    for class_name in batch_seg_perc_error.keys():
+        writer.add_scalar(f'Percentage_error_train/{class_name}',
+                          np.mean([b[class_name] for b in val_percentage_error]),
+                          epoch)
+
     writer.add_scalar('Loss/train', np.mean(train_loss), epoch)
 
     print(f'Evaluating')
     val_loss = []
-    # val_perc_error = []
+    val_percentage_error = []
+
     model.eval()
     with torch.no_grad():
         for batch in val_loader:
@@ -161,23 +150,32 @@ for epoch in range(params['num_epochs']):
             loss = criterion(output, bitmap)
             val_loss.append(loss.data.item())
 
-            # get percentages
-            _, output_integer = F.softmax(output, dim=1).max(1)
-            # predicted_perc, _ = get_percentages_from_output(output_integer)
-            # perc_error, total_perc_error = get_percentage_error(predicted_perc, batch['percentage'])
-            # eval_perc_error.append(total_perc_error)
+            output_soft = F.softmax(output, dim=1)
+            _, output_integer = output_soft.max(1)    # TODO: Evaluate nbr correct pixels instead?
 
-    # writer.add_scalar('Perc error/val', np.mean(eval_perc_error), epoch)
+            segmentation_percentages = calculate_segmentation_percentages(output_soft)
+            batch_seg_perc_error, total_batch_seg_perc_error = \
+                calculate_segmentation_percentage_error(segmentation_percentages, batch['percentage'])
+
+            val_percentage_error.append(batch_seg_perc_error)
+            val_loss.append(loss.data.item())
+
+    # add perc error for every class in plot
+    for class_name in batch_seg_perc_error.keys():
+        writer.add_scalar(f'Percentage_error_val/{class_name}',
+                          np.mean([b[class_name] for b in val_percentage_error]),
+                          epoch)
+
     epoch_val_loss = np.mean(val_loss)
-    writer.add_scalar('Loss/val', np.mean(epoch_val_loss), epoch)
+    writer.add_scalar('Loss/val', epoch_val_loss, epoch)
 
-    model.train()
-
+    # TODO: update plots to show every class
     # print image to tensorboard
     fig = plot.get_images(original=image_input, mask=bitmap, predicted=output_integer)
     writer.add_figure(f'Epoch {epoch+1}', fig, epoch)
-
     writer.flush()
+
+    model.train()
 
     if epoch_val_loss < best_val_loss:
         torch.save(model.state_dict(), f'models/trained/{model_name}')
