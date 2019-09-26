@@ -51,7 +51,7 @@ params_victor = {
 params_isak = {
     'learning_rate': 0.0002,
     'num_epochs': 100,
-    'nbr_cpu': os.cpu_count() - 1,
+    'nbr_cpu': os.cpu_count() - 4,
     'device': device,
     'model_name': model_name,
     'image_size': {
@@ -98,6 +98,16 @@ optimizer = torch.optim.Adam(model.parameters(), lr=params['learning_rate'])
 # init tensorboard
 writer = SummaryWriter()
 
+
+def ratio_loss(class_fractions, bitmaps):
+    bitmap_fraction = torch.zeros(size=class_fraction.shape).to(device)
+    for j in range(4):
+        bitmap_fraction[:, j] = torch.sum(torch.sum(bitmaps==j, dim=2), dim=1).float() / (bitmaps.shape[1]*bitmaps.shape[2])
+
+    loss = torch.mean((class_fractions - bitmap_fraction)**2)
+    return loss
+
+
 best_val_loss = 1000000
 for epoch in range(params['num_epochs']):
     print(f'\nEpoch {epoch+1}/{params["num_epochs"]}')
@@ -113,6 +123,9 @@ for epoch in range(params['num_epochs']):
         output, class_fraction = model(image_input)     # TODO: Use percentage as keyword from segmentation and fractions as keyword for raw prediction?
 
         loss = criterion(output, bitmap)
+        loss2 = ratio_loss(class_fraction, bitmap)
+
+        loss2.backward(retain_graph=True)
         loss.backward()
         optimizer.step()
 
@@ -126,7 +139,7 @@ for epoch in range(params['num_epochs']):
             calculate_segmentation_percentage_error(segmentation_percentages, batch['percentage'])
 
         val_percentage_error.append(batch_seg_perc_error)
-        train_loss.append(loss.data.item())
+        train_loss.append(loss.data.item() + loss2.item())
 
     # add perc error for every class in plot
     for class_name in batch_seg_perc_error.keys():
