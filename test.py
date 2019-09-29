@@ -81,11 +81,11 @@ GLOBHE_transforms_train = transforms.Compose([
 GLOBHE_transforms_val = transforms.Compose([ToTensor()])
 
 train_dataset = GLOBHEDataset('data', 'train', transform=GLOBHE_transforms_train)
-# test_dataset = GLOBHEDataset('data', 'test', transform=GLOBHE_transforms)
+test_dataset = GLOBHEDataset('data', 'test', transform=GLOBHE_transforms_val)
 val_dataset = GLOBHEDataset('data', 'val', transform=GLOBHE_transforms_val)
 
 train_loader = DataLoader(train_dataset, batch_size=params['batch_size']['train'], shuffle=True, num_workers=params['nbr_cpu'])
-# test_loader = DataLoader(test_dataset, batch_size=params['batch_size']['test'], shuffle=True, num_workers=params['nbr_cpu'])
+test_loader = DataLoader(test_dataset, batch_size=params['batch_size']['test'], shuffle=True, num_workers=params['nbr_cpu'])
 val_loader = DataLoader(val_dataset, batch_size=params['batch_size']['val'], shuffle=True, num_workers=params['nbr_cpu'])
 
 model = UNet(3, 4).float()
@@ -187,4 +187,27 @@ for epoch in range(params['num_epochs']):
         # if this happens X epochs in a row, abort?
         print('Overfitting?')
 
+print(f'Testing')
+test_loss = []
+test_percentage_error = []
+model.eval()
+with torch.no_grad():
+    for batch in test_loader:
+        image_input = batch['image'].to(device)
+        bitmap = batch['bitmap'].to(device)
+
+        output, class_fraction = model(image_input)
+        loss = criterion(output, bitmap)
+
+        output_soft = F.softmax(output, dim=1)
+        _, output_integer = output_soft.max(1)    # TODO: Evaluate nbr correct pixels instead?
+
+        segmentation_percentages = calculate_segmentation_percentages(output_soft)
+        batch_seg_perc_error, total_batch_seg_perc_error = \
+            calculate_segmentation_percentage_error(segmentation_percentages, batch['percentage'])
+
+        test_percentage_error.append(batch_seg_perc_error)
+        test_loss.append(loss.data.item())
+
 print(f'All done! Best validation loss was {best_val_loss}. Saved to file {model_name}.')
+print(f'Test loss was {np.mean(test_loss)}')
