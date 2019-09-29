@@ -15,7 +15,13 @@ import datetime
 from help_functions import calculate_segmentation_percentages, calculate_segmentation_percentage_error, \
     correct_mask_bitmaps_for_crop, ratio_loss_function
 
-# TODO: Create better structure for model pipeline
+
+# TODO: Test transfer learning
+# TODO: Difference learning weights for different classes
+# TODO: Utilize regularization
+# TODO: Create better structure for model pipeline, https://pytorch.org/tutorials/beginner/transfer_learning_tutorial.html
+
+
 # start tensorboard with tensorboard --logdir='runs'
 # watch -n 0.5 nvidia-smi
 
@@ -159,7 +165,6 @@ for epoch in range(params['num_epochs']):
     writer.add_scalar('Loss/val_segment', np.mean(val_loss_segment), epoch)
     writer.add_scalar('Loss/val_percentage', np.mean(val_loss_percentage), epoch)
 
-    # TODO: update plots to show every class
     # print image to tensorboard
     fig = plot.get_images(original=image_input, mask=bitmap, predicted=output_integer)
     writer.add_figure(f'Plots', fig, epoch)
