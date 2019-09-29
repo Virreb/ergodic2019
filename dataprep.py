@@ -230,6 +230,17 @@ def generate_integer_bitmaps(rgb_bitmap):
 if __name__ == '__main__':
     #split_data_to_train_val_test(raw_base_path='data_raw/Training_dataset', new_base_path='data', val_ratio=0.3, test_ratio=0)
     train_dataset = GLOBHEDataset('data', 'train')
-    sample = train_dataset[0]
-    rc = RandomFlip()
-    rc(sample)
+    sample = train_dataset[1]
+    tt = ToTensor()
+    tt(sample)
+    import matplotlib.pyplot as plt
+    plt.imshow(np.array(sample['bitmap']))
+    plt.colorbar()
+    plt.clim(0, 3)
+    plt.figure()
+    rc = RandomCrop((512, 512))
+    sample = rc(sample)
+    plt.imshow(np.array(sample['bitmap']))
+    plt.colorbar()
+    plt.clim(0,3)
+    plt.show()
