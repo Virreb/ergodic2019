@@ -20,6 +20,8 @@ from help_functions import calculate_segmentation_percentages, calculate_segment
 # TODO: Difference learning weights for different classes
 # TODO: Utilize regularization
 # TODO: Create better structure for model pipeline, https://pytorch.org/tutorials/beginner/transfer_learning_tutorial.html
+# TODO: Skip test split, use API instead
+# TODO: Framework for testing parameter comb.
 
 
 # start tensorboard with tensorboard --logdir='runs'
@@ -166,12 +168,12 @@ for epoch in range(params['num_epochs']):
     writer.add_scalar('Loss/val_percentage', np.mean(val_loss_percentage), epoch)
 
     # print image to tensorboard
-    fig = plot.get_images(original=image_input, mask=bitmap, predicted=output_integer)
-    fig2 = plot.draw_class_bitmaps(mask=bitmap.cpu().numpy()[0],
-                                   prediction=output_soft.cpu().numpy()[0],
-                                   image=image_input.cpu().numpy()[0])
-    writer.add_figure(f'Plots', fig, epoch)
-    writer.add_fig('CompareClasses', fig2, epoch)
+    # fig = plot.get_images(original=image_input, mask=bitmap, predicted=output_integer)
+    fig = plot.draw_class_bitmaps(mask=bitmap.cpu().numpy()[0],
+                                  prediction=output_soft.cpu().numpy()[0],
+                                  image=image_input.cpu().numpy()[0])
+    # writer.add_figure(f'Plots', fig, epoch)
+    writer.add_figure('CompareClasses', fig, epoch)
     writer.flush()
 
     scheduler.step(epoch_val_loss)
