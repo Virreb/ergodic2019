@@ -162,7 +162,11 @@ for epoch in range(params['num_epochs']):
     # TODO: update plots to show every class
     # print image to tensorboard
     fig = plot.get_images(original=image_input, mask=bitmap, predicted=output_integer)
+    fig2 = plot.draw_class_bitmaps(mask=bitmap.cpu().numpy()[0],
+                                   prediction=output_soft.cpu().numpy()[0],
+                                   image=image_input.cpu().numpy()[0])
     writer.add_figure(f'Plots', fig, epoch)
+    writer.add_fig('CompareClasses', fig2, epoch)
     writer.flush()
 
     scheduler.step(epoch_val_loss)

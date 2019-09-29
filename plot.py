@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 
 
 def show_image(base, name, predicted=None):
@@ -48,7 +49,6 @@ def show_image(base, name, predicted=None):
 
 def get_images(original, mask, predicted):
 
-    import matplotlib.pyplot as plt
     from matplotlib import colors
     # cmap = plt.get_cmap('Set1', 4)
 
@@ -86,4 +86,60 @@ def get_images(original, mask, predicted):
     ax_raw.title.set_text('Original')
 
     return fig
+
+
+def draw_class_bitmaps(mask, prediction, image):
+    fig = plt.figure(figsize=(12, 5))
+    from config import CLASS_ORDER
+    import numpy as np
+
+    plt.subplot(2, 3, 1)
+    plt.imshow(image.transpose((1, 2, 0)))
+    plt.title('Image')
+
+    plt.subplot(2, 3, 2)
+    plt.imshow(mask)
+    plt.clim(0, 3)
+    plt.colorbar()
+    plt.title('annotated mask')
+
+    plt.subplot(2, 3, 3)
+    plt.imshow(np.argmax(prediction, axis=0))
+    plt.clim(0, 3)
+    plt.colorbar()
+    plt.title('predicted mask')
+
+    for i in range(1, 4):
+        plt.subplot(2, 3, i+3)
+        plt.imshow(prediction[i])
+        plt.clim(0, 1)
+        plt.colorbar()
+        plt.title(CLASS_ORDER[i])
+
+    plt.tight_layout()
+
+    return fig
+
+
+if __name__ == '__main__':
+    from main import load_net
+    import torch
+    import torch.nn.functional as F
+    from dataprep import GLOBHEDataset, ToTensor
+    model, device = load_net('unet_2019-09-29_1251.pth')
+    with torch.no_grad():
+        train_dataset = GLOBHEDataset('data', 'train')
+
+        sample = train_dataset[8]
+        sample = ToTensor()(sample)
+
+        mask = sample['bitmap'].cpu().numpy()
+
+        image_tensor = sample['image'].to(device).unsqueeze(0)
+        out_bitmap, out_percentages = model(image_tensor)
+        output_soft = F.softmax(out_bitmap, dim=1)
+
+        draw_class_bitmaps(mask, output_soft.detach().numpy()[0], sample['image'].detach().numpy())
+        plt.show()
+
 

@@ -228,19 +228,40 @@ def generate_integer_bitmaps(rgb_bitmap):
     return integer_bitmap
 
 if __name__ == '__main__':
-    #split_data_to_train_val_test(raw_base_path='data_raw/Training_dataset', new_base_path='data', val_ratio=0.3, test_ratio=0)
+    #split_data_to_train_val_test(raw_base_path='data_raw/Training_dataset', new_base_path='data', val_ratio=0.3, test_ratio=0.2)
+
     train_dataset = GLOBHEDataset('data', 'train')
-    sample = train_dataset[1]
-    tt = ToTensor()
-    tt(sample)
+    sample = train_dataset[8]
+
     import matplotlib.pyplot as plt
-    plt.imshow(np.array(sample['bitmap']))
+
+    bitmap_array = np.array(sample['bitmap'])
+    class_perc = np.zeros(4)
+    for i in range(4):
+        class_perc[i] = np.sum(bitmap_array == i) / np.prod(bitmap_array.shape)
+    print(class_perc*100)
+    image_array = np.array(sample['image'])
+    print(sample['percentage'])
+
+    plt.subplot(1, 2, 1)
+    plt.imshow(bitmap_array)
     plt.colorbar()
     plt.clim(0, 3)
+    plt.subplot(1, 2, 2)
+    plt.imshow(image_array)
+    plt.colorbar()
+    plt.clim(0, 3)
+    plt.show()
+    """
     plt.figure()
     rc = RandomCrop((512, 512))
     sample = rc(sample)
+    plt.subplot(1,2,1)
     plt.imshow(np.array(sample['bitmap']))
     plt.colorbar()
-    plt.clim(0,3)
-    plt.show()
+    plt.clim(0, 3)
+    plt.subplot(1,2,2)
+    plt.imshow(np.array(sample['image']))
+    plt.colorbar()
+    plt.clim(0, 3)
+    plt.show()"""
