@@ -69,9 +69,10 @@ def load_net(model_name):
     model.eval()
 
     model_path = f'models/trained/{model_name}'
-    model.load_state_dict(torch.load(model_path))
+    model.load_state_dict(torch.load(model_path, map_location=device))
 
     return model, device
 
 
-main(model_name='unet_2019-09-29_1146.pth')
+if __name__ == '__main__':
+    main(model_name='unet_2019-09-29_1146.pth')
