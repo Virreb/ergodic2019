@@ -1,6 +1,7 @@
 
 import torch
 from torch.utils.data import DataLoader
+from torch.optim.lr_scheduler import ExponentialLR, ReduceLROnPlateau
 from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
 from config import device, params_victor, params_isak
@@ -27,8 +28,8 @@ if os.path.exists('models') is False:
 if os.path.exists('models/trained') is False:
     os.mkdir('models/trained')
 
-if os.path.exists('runs') is True:
-    shutil.rmtree('runs')
+# if os.path.exists('runs') is True:
+#     shutil.rmtree('runs')
 
 model_name = f'unet_{datetime.datetime.today().strftime("%Y-%m-%d_%H%M")}.pth'
 
@@ -60,7 +61,8 @@ model = model.to(device)
 
 criterion = torch.nn.CrossEntropyLoss()
 mse_criterion = torch.nn.MSELoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=params['learning_rate'])
+optimizer = torch.optim.Adam(model.parameters(), lr=params['learning']['rate'])
+scheduler = ReduceLROnPlateau(optimizer, patience=params['learning']['patience'], factor=params['learning']['decay'])
 
 # init tensorboard
 writer = SummaryWriter()
@@ -71,7 +73,7 @@ for epoch in range(params['num_epochs']):
     train_loss = []
     train_loss_segment = []
     train_loss_percentage = []
-    val_percentage_error = []
+    train_percentage_error = []
 
     print(f'Training')
     for batch in train_loader:
@@ -102,15 +104,15 @@ for epoch in range(params['num_epochs']):
             calculate_segmentation_percentage_error(segmentation_percentages, corrected_bitmaps)
 
         # save values for evaluating
-        val_percentage_error.append(batch_seg_perc_error)
+        train_percentage_error.append(batch_seg_perc_error)
         train_loss_segment.append(segment_loss.data.item())
         train_loss_percentage.append(ratio_loss.item())
         train_loss.append(segment_loss.data.item() + ratio_loss.item())
 
     # add perc error for every class in plot
     for class_name in batch_seg_perc_error.keys():
-        writer.add_scalar(f'Percentage_error_train/{class_name}',
-                          np.mean([b[class_name] for b in val_percentage_error]),
+        writer.add_scalar(f'Percentage_error/train/{class_name}',
+                          np.mean([b[class_name] for b in train_percentage_error]),
                           epoch)
 
     writer.add_scalar('Loss/train', np.mean(train_loss), epoch)
@@ -149,7 +151,7 @@ for epoch in range(params['num_epochs']):
     epoch_val_loss = np.mean(val_loss)
     # add perc error for every class in plot
     for class_name in batch_seg_perc_error.keys():
-        writer.add_scalar(f'Percentage_error_val/{class_name}',
+        writer.add_scalar(f'Percentage_error/val/{class_name}',
                           np.mean([b[class_name] for b in val_percentage_error]),
                           epoch)
 
@@ -160,9 +162,10 @@ for epoch in range(params['num_epochs']):
     # TODO: update plots to show every class
     # print image to tensorboard
     fig = plot.get_images(original=image_input, mask=bitmap, predicted=output_integer)
-    writer.add_figure(f'Epoch {epoch+1}', fig, epoch)
+    writer.add_figure(f'Plots', fig, epoch)
     writer.flush()
 
+    scheduler.step(epoch_val_loss)
     model.train()
 
     if epoch_val_loss < best_val_loss:
@@ -177,14 +180,13 @@ for epoch in range(params['num_epochs']):
 
 print(f'Training done! Best validation loss was {best_val_loss}. Saved to file {model_name}.')
 
-print(f'Testing :O')
+print(f'Testing :D')
 test_loss = []
 test_loss_segment = []
 test_loss_percentage = []
 test_percentage_error = []
 
 model.eval()
-
 with torch.no_grad():
     for batch in test_loader:
         image_input = batch['image'].to(device)

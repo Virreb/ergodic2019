@@ -7,12 +7,12 @@ def calculate_segmentation_percentages(segmented_images):
     :param segmented_images:
     :return:
     """
+    from config import CLASS_ORDER
 
     # TODO: Use original segmentation (can be negative) or soft (0-1)?
 
     size = segmented_images.size()
     nbr_pixels = size[2]*size[3]
-    class_names = ['nothing', 'water', 'building', 'road']    # TODO: Double check order
 
     segmentation_percentages = []
     for img_idx in range(size[0]):
@@ -20,7 +20,7 @@ def calculate_segmentation_percentages(segmented_images):
         for class_idx in range(size[1]):
             # class_percentage = np.sum(segmented_images[img_idx, class_idx, :, :]) / nbr_pixels
             class_percentage = segmented_images[img_idx, class_idx, :, :].sum().item() / nbr_pixels * 100
-            percentages[class_names[class_idx]] = class_percentage
+            percentages[CLASS_ORDER[class_idx]] = class_percentage
 
         segmentation_percentages.append(percentages)
 
@@ -53,14 +53,16 @@ def calculate_segmentation_percentage_error(predicted_percentages, real_percenta
 
 
 def correct_mask_bitmaps_for_crop(bitmaps):
+    from config import CLASS_ORDER
+
     size = bitmaps.size()
-    class_names = ['water', 'building', 'road']    # TODO: Double check order
+    class_names = CLASS_ORDER[1:]
     nbr_pixels = size[1]*size[2]
 
     bitmap_percentages = {}
     for class_idx, class_name in enumerate(class_names):
-        class_percentage1 = torch.sum(torch.sum(bitmaps == class_idx, dim=2), dim=1).float() / nbr_pixels
-        bitmap_percentages[class_name] = class_percentage1.tolist()
+        class_percentage = torch.sum(torch.sum(bitmaps == (class_idx + 1), dim=2), dim=1).float() / nbr_pixels
+        bitmap_percentages[class_name] = class_percentage.tolist()
 
     return bitmap_percentages
 

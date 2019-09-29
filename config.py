@@ -2,11 +2,16 @@ import os
 
 import torch
 
+CLASS_ORDER = ['nothing', 'water', 'building', 'road']
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 params_victor = {
-    'learning_rate': 0.0002,
-    'num_epochs': 5,
+    'learning': {
+        'rate': 0.1,
+        'patience': 2,
+        'decay': 0.2
+    },
+    'num_epochs': 20,
     'nbr_cpu': os.cpu_count() - 1,
     'device': device,
     'image_size': {
@@ -21,7 +26,11 @@ params_victor = {
     },
 }
 params_isak = {
-    'learning_rate': 0.0002,
+    'learning': {
+        'rate': 0.1,
+        'patience': 2,
+        'decay': 0.2
+    },
     'num_epochs': 4,
     'nbr_cpu': os.cpu_count() - 4,
     'device': device,
