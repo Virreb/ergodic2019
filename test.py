@@ -50,8 +50,8 @@ params_victor = {
 
 params_isak = {
     'learning_rate': 0.0002,
-    'num_epochs': 100,
-    'nbr_cpu': os.cpu_count() - 1,
+    'num_epochs': 4,
+    'nbr_cpu': os.cpu_count() - 4,
     'device': device,
     'model_name': model_name,
     'image_size': {
@@ -60,13 +60,13 @@ params_isak = {
         'test': (1024, 1024)
     },
     'batch_size': {
-        'train': 8,
+        'train': 2,
         'val': 2,
         'test': 2,
     },
 }
 
-params = params_victor
+params = params_isak
 
 print('GPU available:', torch.cuda.is_available(), ' \nNumber of CPUs:', params['nbr_cpu'])
 
@@ -98,10 +98,22 @@ optimizer = torch.optim.Adam(model.parameters(), lr=params['learning_rate'])
 # init tensorboard
 writer = SummaryWriter()
 
+
+def ratio_loss_function(class_fractions, bitmaps):
+    bitmap_fraction = torch.zeros(size=class_fraction.shape).to(device)
+    for j in range(4):
+        bitmap_fraction[:, j] = torch.sum(torch.sum(bitmaps==j, dim=2), dim=1).float() / (bitmaps.shape[1]*bitmaps.shape[2])
+
+    loss = torch.mean((class_fractions - bitmap_fraction)**2)
+    return loss
+
+
 best_val_loss = 1000000
 for epoch in range(params['num_epochs']):
     print(f'\nEpoch {epoch+1}/{params["num_epochs"]}')
     train_loss = []
+    train_loss_segment = []
+    train_loss_percentage = []
     val_percentage_error = []
 
     print(f'Training')
@@ -112,8 +124,11 @@ for epoch in range(params['num_epochs']):
         optimizer.zero_grad()
         output, class_fraction = model(image_input)     # TODO: Use percentage as keyword from segmentation and fractions as keyword for raw prediction?
 
-        loss = criterion(output, bitmap)
-        loss.backward()
+        segment_loss = criterion(output, bitmap)
+        ratio_loss = ratio_loss_function(class_fraction, bitmap)
+
+        ratio_loss.backward(retain_graph=True)
+        segment_loss.backward()
         optimizer.step()
 
         # TODO: Create loss function with predicted class fractions aswel?
@@ -126,7 +141,9 @@ for epoch in range(params['num_epochs']):
             calculate_segmentation_percentage_error(segmentation_percentages, batch['percentage'])
 
         val_percentage_error.append(batch_seg_perc_error)
-        train_loss.append(loss.data.item())
+        train_loss_segment.append(segment_loss.data.item())
+        train_loss_percentage.append(ratio_loss.item())
+        train_loss.append(segment_loss.data.item() + ratio_loss.item())
 
     # add perc error for every class in plot
     for class_name in batch_seg_perc_error.keys():
@@ -135,9 +152,14 @@ for epoch in range(params['num_epochs']):
                           epoch)
 
     writer.add_scalar('Loss/train', np.mean(train_loss), epoch)
+    writer.add_scalar('Loss/train_segment', np.mean(train_loss_segment), epoch)
+    writer.add_scalar('Loss/train_percentage', np.mean(train_loss_percentage), epoch)
 
     print(f'Evaluating')
     val_loss = []
+    val_loss_segment = []
+    val_loss_percentage = []
+
     val_percentage_error = []
 
     model.eval()
@@ -147,8 +169,12 @@ for epoch in range(params['num_epochs']):
             bitmap = batch['bitmap'].to(device)
 
             output, class_fraction = model(image_input)
-            loss = criterion(output, bitmap)
-            val_loss.append(loss.data.item())
+            segment_loss = criterion(output, bitmap)
+            ratio_loss = ratio_loss_function(class_fraction, bitmap)
+
+            val_loss.append(segment_loss.data.item() + ratio_loss.item())
+            val_loss_segment.append(segment_loss.data.item())
+            val_loss_percentage.append(ratio_loss.item())
 
             output_soft = F.softmax(output, dim=1)
             _, output_integer = output_soft.max(1)    # TODO: Evaluate nbr correct pixels instead?
@@ -158,7 +184,7 @@ for epoch in range(params['num_epochs']):
                 calculate_segmentation_percentage_error(segmentation_percentages, batch['percentage'])
 
             val_percentage_error.append(batch_seg_perc_error)
-            val_loss.append(loss.data.item())
+
 
     # add perc error for every class in plot
     for class_name in batch_seg_perc_error.keys():
@@ -166,8 +192,9 @@ for epoch in range(params['num_epochs']):
                           np.mean([b[class_name] for b in val_percentage_error]),
                           epoch)
 
-    epoch_val_loss = np.mean(val_loss)
-    writer.add_scalar('Loss/val', epoch_val_loss, epoch)
+    writer.add_scalar('Loss/val', np.mean(val_loss), epoch)
+    writer.add_scalar('Loss/val_segment', np.mean(val_loss_segment), epoch)
+    writer.add_scalar('Loss/val_percentage', np.mean(val_loss_percentage), epoch)
 
     # TODO: update plots to show every class
     # print image to tensorboard
