@@ -109,3 +109,6 @@ credentials.json
 .idea/
 data_raw/
 dataset.zip
+api_images/
+models/
+runs/

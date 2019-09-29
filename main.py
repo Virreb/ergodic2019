@@ -16,9 +16,8 @@ image_folder_path = 'api_images'
 pil_image_2_tensor = transforms.ToTensor()
 
 
-
-def main():
-    model, device = load_net()
+def main(model_name):
+    model, device = load_net(model_name)
 
     result = api.init_game(api_key)
     game_id = result["gameId"]
@@ -42,7 +41,7 @@ def main():
         solutionHelper.print_scores(solution_response)
         rounds_left = solution_response['roundsLeft']
 
-    solutionHelper.clean_images_from_folder(image_folder_path)
+    # solutionHelper.clean_images_from_folder(image_folder_path)
 
 
 def analyze_image(image_path, model, device):
@@ -54,24 +53,25 @@ def analyze_image(image_path, model, device):
     pil_image = Image.open(image_path)
     image_tensor = pil_image_2_tensor(pil_image)
     image_tensor = image_tensor.to(device).unsqueeze(0)
-    _, out_percentages = model(image_tensor)
+    out_bitmap, out_percentages = model(image_tensor)
 
-    return_dict = {"building_percentage": out_percentages[0, 2] * 100,
-                   "water_percentage": out_percentages[0, 1] * 100,
-                   "road_percentage": out_percentages[0, 3] * 100}
-
+    return_dict = {"building_percentage": out_percentages[0, 2].item() * 100,
+                   "water_percentage": out_percentages[0, 1].item() * 100,
+                   "road_percentage": out_percentages[0, 3].item() * 100}
+    del image_tensor, out_percentages, out_bitmap, pil_image
     return return_dict
 
 
-def load_net():
+def load_net(model_name):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = UNet(3, 4).float()
     model = model.to(device)
+    model.eval()
 
-    model_name = 'test_net.pth'
     model_path = f'models/trained/{model_name}'
     model.load_state_dict(torch.load(model_path))
 
     return model, device
 
-main()
+
+main(model_name='unet_2019-09-29_1146.pth')

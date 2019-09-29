@@ -1,6 +1,5 @@
 import torch
-
-from test import class_fraction, device
+from config import device
 
 
 def calculate_segmentation_percentages(segmented_images):
@@ -67,7 +66,7 @@ def correct_mask_bitmaps_for_crop(bitmaps):
 
 
 def ratio_loss_function(class_fractions, bitmaps):
-    bitmap_fraction = torch.zeros(size=class_fraction.shape).to(device)
+    bitmap_fraction = torch.zeros(size=class_fractions.shape).to(device)
     for j in range(4):
         bitmap_fraction[:, j] = torch.sum(torch.sum(bitmaps == j, dim=2), dim=1).float() / (bitmaps.shape[1]*bitmaps.shape[2])
 

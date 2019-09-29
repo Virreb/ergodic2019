@@ -3,8 +3,9 @@ import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
+from config import device, params_victor, params_isak
 from dataprep import GLOBHEDataset, ToTensor, RandomCrop, RandomFlip, RandomRotate
-import os
+import os, shutil
 from UnetModel import UNet
 import numpy as np
 import torch.nn.functional as F
@@ -26,49 +27,13 @@ if os.path.exists('models') is False:
 if os.path.exists('models/trained') is False:
     os.mkdir('models/trained')
 
-# if os.path.exists('runs') is True:
-#     shutil.rmtree('runs')
+if os.path.exists('runs') is True:
+    shutil.rmtree('runs')
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model_name = f'unet_{datetime.datetime.today().strftime("%Y-%m-%d_%H%M")}.pth'
 
-params_victor = {
-    'learning_rate': 0.0002,
-    'num_epochs': 100,
-    'nbr_cpu': os.cpu_count() - 1,
-    'device': device,
-    'model_name': model_name,
-    'image_size': {
-        'train': (256, 256),
-        'val': (1024, 1024),
-        'test': (1024, 1024)
-    },
-    'batch_size': {
-        'train': 8,
-        'val': 2,
-        'test': 2,
-    },
-}
-
-params_isak = {
-    'learning_rate': 0.0002,
-    'num_epochs': 4,
-    'nbr_cpu': os.cpu_count() - 4,
-    'device': device,
-    'model_name': model_name,
-    'image_size': {
-        'train': (256, 256),
-        'val': (1024, 1024),
-        'test': (1024, 1024)
-    },
-    'batch_size': {
-        'train': 2,
-        'val': 2,
-        'test': 2,
-    },
-}
-
 params = params_victor
+params['model_name'] = model_name
 
 print('GPU available:', torch.cuda.is_available(), ' \nNumber of CPUs:', params['nbr_cpu'])
 
