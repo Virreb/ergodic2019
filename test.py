@@ -81,7 +81,7 @@ GLOBHE_transforms_train = transforms.Compose([
 GLOBHE_transforms_val = transforms.Compose([ToTensor()])
 
 train_dataset = GLOBHEDataset('data', 'train', transform=GLOBHE_transforms_train)
-test_dataset = GLOBHEDataset('data', 'test', transform=GLOBHE_transforms)
+test_dataset = GLOBHEDataset('data', 'test', transform=GLOBHE_transforms_val)
 val_dataset = GLOBHEDataset('data', 'val', transform=GLOBHE_transforms_val)
 
 train_loader = DataLoader(train_dataset, batch_size=params['batch_size']['train'], shuffle=True, num_workers=params['nbr_cpu'])
