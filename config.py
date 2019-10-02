@@ -11,8 +11,8 @@ params_victor = {
         'patience': 2,
         'decay': 0.2
     },
-    'num_epochs': 20,
-    'nbr_cpu': os.cpu_count() - 1,
+    'num_epochs': 150,
+    'nbr_cpu': 0,
     'device': device,
     'image_size': {
         'train': (256, 256),

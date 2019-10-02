@@ -1,8 +1,10 @@
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 import numpy as np
 from PIL import Image
 import PIL
 import json
+
+from torchvision import transforms
 
 
 class GLOBHEDataset(Dataset):
@@ -227,8 +229,44 @@ def generate_integer_bitmaps(rgb_bitmap):
 
     return integer_bitmap
 
+
+def get_data_loaders(params):
+
+    # Transforms
+    GLOBHE_transforms_train = transforms.Compose([
+        RandomCrop(params['image_size']['train']),
+        RandomFlip(),
+        RandomRotate(),
+        ToTensor()
+    ])
+
+    GLOBHE_transforms_val = transforms.Compose([ToTensor()])
+
+    train_dataset = GLOBHEDataset('data', 'train', transform=GLOBHE_transforms_train)
+    test_dataset = GLOBHEDataset('data', 'test', transform=GLOBHE_transforms_val)
+    val_dataset = GLOBHEDataset('data', 'val', transform=GLOBHE_transforms_val)
+
+    train_loader, test_loader, val_loader = None, None, None
+    if train_dataset.__len__() > 0:
+        train_loader = DataLoader(train_dataset, batch_size=params['batch_size']['train'], shuffle=True, num_workers=params['nbr_cpu'])
+
+    if test_dataset.__len__() > 0:
+        test_loader = DataLoader(test_dataset, batch_size=params['batch_size']['test'], shuffle=True, num_workers=params['nbr_cpu'])
+
+    if val_dataset.__len__() > 0:
+        val_loader = DataLoader(val_dataset, batch_size=params['batch_size']['val'], shuffle=True, num_workers=params['nbr_cpu'])
+
+    return {
+        'train': train_loader,
+        'val': val_loader,
+        'test': test_loader,
+    }
+
+
 if __name__ == '__main__':
-    #split_data_to_train_val_test(raw_base_path='data_raw/Training_dataset', new_base_path='data', val_ratio=0.3, test_ratio=0.2)
+
+    # TODO: Remove this?
+    # split_data_to_train_val_test(raw_base_path='data_raw/Training_dataset', new_base_path='data', val_ratio=0.3, test_ratio=0.2)
 
     train_dataset = GLOBHEDataset('data', 'train')
     sample = train_dataset[8]
@@ -265,3 +303,5 @@ if __name__ == '__main__':
     plt.colorbar()
     plt.clim(0, 3)
     plt.show()"""
+
+
