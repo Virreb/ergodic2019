@@ -67,7 +67,8 @@ val_loader = DataLoader(val_dataset, batch_size=params['batch_size']['val'], shu
 model = UNet(3, 4).float()
 model = model.to(device)
 
-criterion = torch.nn.CrossEntropyLoss()
+class_weights = torch.tensor([1, 7.3, 2.5, 12.3]).to(device)
+criterion = torch.nn.CrossEntropyLoss(weight=class_weights)
 mse_criterion = torch.nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=params['learning']['rate'])
 scheduler = ReduceLROnPlateau(optimizer, patience=params['learning']['patience'], factor=params['learning']['decay'])
