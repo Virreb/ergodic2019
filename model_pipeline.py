@@ -75,121 +75,166 @@ scheduler = ReduceLROnPlateau(optimizer, patience=params['learning']['patience']
 # init tensorboard
 writer = SummaryWriter()
 
-best_val_loss = 1000000
-for epoch in range(params['num_epochs']):
-    print(f'\nEpoch {epoch+1}/{params["num_epochs"]}')
-    train_loss = []
-    train_loss_segment = []
-    train_loss_percentage = []
-    train_percentage_error = []
+dataloaders = {
+    'train': train_loader,
+    'val': val_loader,
+}
 
-    print(f'Training')
-    for batch in train_loader:
-        image_input = batch['image'].to(device)
-        bitmap = batch['bitmap'].to(device)
 
-        optimizer.zero_grad()
-        output, class_fraction = model(image_input)
+def train_model(model, optimizer, scheduler, params):
+    best_val_loss = 1000000
+    for epoch in range(params['num_epochs']):
+        print(f'\nEpoch {epoch+1}/{params["num_epochs"]}')
 
-        segment_loss = criterion(output, bitmap)
-        ratio_loss = ratio_loss_function(class_fraction, bitmap)
+        for phase in ['train', 'val']:
 
-        ratio_loss.backward(retain_graph=True)
-        segment_loss.backward()
-        optimizer.step()
+            if phase == 'train':
+                model.train()
+            else:
+                model.eval()
 
-        output_soft = F.softmax(output, dim=1)
-        # _, output_integer = output_soft.max(1)    # TODO: Evaluate nbr correct pixels instead?
+            batch_loss = []
+            batch_loss_segment = []
+            batch_loss_percentage = []
+            batch_percentage_error = []
 
-        # Calculate percentages from image segmentation
-        segmentation_percentages = calculate_segmentation_percentages(output_soft)
+            print('Phase:', phase)
+            for batch in dataloaders[phase]:
+                image_input = batch['image'].to(device)
+                bitmap = batch['bitmap'].to(device)
 
-        # Correct bitmaps to crop to get percentages to evaluate to
-        corrected_bitmaps = correct_mask_bitmaps_for_crop(bitmap)
+                optimizer.zero_grad()
 
-        # calulate percentage error
-        batch_seg_perc_error, total_batch_seg_perc_error = \
-            calculate_segmentation_percentage_error(segmentation_percentages, corrected_bitmaps)
+                with torch.set_grad_enabled(phase == 'train'):
+                    output, class_fraction = model(image_input)
 
-        # save values for evaluating
-        train_percentage_error.append(batch_seg_perc_error)
-        train_loss_segment.append(segment_loss.data.item())
-        train_loss_percentage.append(ratio_loss.item())
-        train_loss.append(segment_loss.data.item() + ratio_loss.item())
+                    segment_loss = criterion(output, bitmap)
+                    ratio_loss = ratio_loss_function(class_fraction, bitmap)
 
-    # add perc error for every class in plot
-    for class_name in batch_seg_perc_error.keys():
-        writer.add_scalar(f'Percentage_error/train/{class_name}',
-                          np.mean([b[class_name] for b in train_percentage_error]),
-                          epoch)
+                    if phase == 'train':
+                        ratio_loss.backward(retain_graph=True)
+                        segment_loss.backward()
+                        optimizer.step()
 
-    writer.add_scalar('Loss/train', np.mean(train_loss), epoch)
-    writer.add_scalar('Loss/train_segment', np.mean(train_loss_segment), epoch)
-    writer.add_scalar('Loss/train_percentage', np.mean(train_loss_percentage), epoch)
+                output_soft = F.softmax(output, dim=1)
+                # _, output_integer = output_soft.max(1)    # TODO: Evaluate nbr correct pixels instead?
 
-    print(f'Evaluating')
-    val_loss = []
-    val_loss_segment = []
-    val_loss_percentage = []
-    val_percentage_error = []
+                # Calculate percentages from image segmentation
+                segmentation_percentages = calculate_segmentation_percentages(output_soft)
 
-    model.eval()
-    with torch.no_grad():
-        for batch in val_loader:
-            image_input = batch['image'].to(device)
-            bitmap = batch['bitmap'].to(device)
+                # Correct bitmaps to crop to get percentages to evaluate to
+                corrected_bitmaps = correct_mask_bitmaps_for_crop(bitmap)
 
-            output, class_fraction = model(image_input)
-            segment_loss = criterion(output, bitmap)
-            ratio_loss = ratio_loss_function(class_fraction, bitmap)
+                # calulate percentage error
+                batch_seg_perc_error, total_batch_seg_perc_error = \
+                    calculate_segmentation_percentage_error(segmentation_percentages, corrected_bitmaps)
 
-            val_loss.append(segment_loss.data.item() + ratio_loss.item())
-            val_loss_segment.append(segment_loss.data.item())
-            val_loss_percentage.append(ratio_loss.item())
+                # save values for evaluating
+                batch_percentage_error.append(batch_seg_perc_error)
+                batch_loss_segment.append(segment_loss.data.item())
+                batch_loss_percentage.append(ratio_loss.item())
+                batch_loss.append(segment_loss.data.item() + ratio_loss.item())
 
-            output_soft = F.softmax(output, dim=1)
-            _, output_integer = output_soft.max(1)    # TODO: Evaluate nbr correct pixels instead?
+            # add perc error for every class in plot
+            for class_name in batch_seg_perc_error.keys():
+                writer.add_scalar(f'Percentage_error/{phase}/{class_name}',
+                                  np.mean([b[class_name] for b in batch_percentage_error]),
+                                  epoch)
 
-            segmentation_percentages = calculate_segmentation_percentages(output_soft)
-            batch_seg_perc_error, total_batch_seg_perc_error = \
-                calculate_segmentation_percentage_error(segmentation_percentages, batch['percentage'])
+            writer.add_scalar(f'Loss/{phase}', np.mean(batch_loss), epoch)
+            writer.add_scalar(f'Loss/{phase}_segment', np.mean(batch_loss_segment), epoch)
+            writer.add_scalar(f'Loss/{phase}_percentage', np.mean(batch_loss_percentage), epoch)
 
-            val_percentage_error.append(batch_seg_perc_error)
+            if phase == 'val':
+                epoch_val_loss = np.mean(batch_loss)
 
-    epoch_val_loss = np.mean(val_loss)
-    # add perc error for every class in plot
-    for class_name in batch_seg_perc_error.keys():
-        writer.add_scalar(f'Percentage_error/val/{class_name}',
-                          np.mean([b[class_name] for b in val_percentage_error]),
-                          epoch)
+                print('Current epoch val loss:', epoch_val_loss)
 
-    writer.add_scalar('Loss/val', np.mean(val_loss), epoch)
-    writer.add_scalar('Loss/val_segment', np.mean(val_loss_segment), epoch)
-    writer.add_scalar('Loss/val_percentage', np.mean(val_loss_percentage), epoch)
+                scheduler.step(epoch_val_loss)
 
-    # print image to tensorboard
-    # fig = plot.get_images(original=image_input, mask=bitmap, predicted=output_integer)
-    fig = plot.draw_class_bitmaps(mask=bitmap.cpu().numpy()[0],
-                                  prediction=output_soft.cpu().numpy()[0],
-                                  image=image_input.cpu().numpy()[0])
-    # writer.add_figure(f'Plots', fig, epoch)
-    writer.add_figure('CompareClasses', fig, epoch)
-    writer.flush()
+                fig = plot.draw_class_bitmaps(mask=bitmap.cpu().numpy()[0],
+                                              prediction=output_soft.cpu().numpy()[0],
+                                              image=image_input.cpu().numpy()[0])
+                writer.add_figure('CompareClasses', fig, epoch)
 
-    scheduler.step(epoch_val_loss)
-    model.train()
+                if epoch_val_loss < best_val_loss:
+                    torch.save(model.state_dict(), f'models/trained/{model_name}')
+                    print('This is the best model so far!')
+                    best_val_loss = epoch_val_loss
+                    # TODO: also save the params? Should include the transform names? Maybe also the loss?
 
-    if epoch_val_loss < best_val_loss:
-        torch.save(model.state_dict(), f'models/trained/{model_name}')
-        print('New best model! Current loss:', epoch_val_loss)
-        best_val_loss = epoch_val_loss
-        # TODO: also save the params? Should include the transform names? Maybe also the loss?
+                if epoch_val_loss > best_val_loss:
+                    # if this happens X epochs in a row, abort?
+                    print('Overfitting?')
 
-    if epoch_val_loss > best_val_loss:
-        # if this happens X epochs in a row, abort?
-        print('Overfitting?')
+            writer.flush()
 
-print(f'Training done! Best validation loss was {best_val_loss}. Saved to file {model_name}.')
+
+    print(f'Training done! Best validation loss was {best_val_loss}. Saved to file {model_name}.')
+
+        print(f'Evaluating')
+        val_loss = []
+        val_loss_segment = []
+        val_loss_percentage = []
+        val_percentage_error = []
+
+        model.eval()
+        with torch.no_grad():
+            for batch in val_loader:
+                image_input = batch['image'].to(device)
+                bitmap = batch['bitmap'].to(device)
+
+                output, class_fraction = model(image_input)
+                segment_loss = criterion(output, bitmap)
+                ratio_loss = ratio_loss_function(class_fraction, bitmap)
+
+                val_loss.append(segment_loss.data.item() + ratio_loss.item())
+                val_loss_segment.append(segment_loss.data.item())
+                val_loss_percentage.append(ratio_loss.item())
+
+                output_soft = F.softmax(output, dim=1)
+                _, output_integer = output_soft.max(1)    # TODO: Evaluate nbr correct pixels instead?
+
+                segmentation_percentages = calculate_segmentation_percentages(output_soft)
+                batch_seg_perc_error, total_batch_seg_perc_error = \
+                    calculate_segmentation_percentage_error(segmentation_percentages, batch['percentage'])
+
+                val_percentage_error.append(batch_seg_perc_error)
+
+        epoch_val_loss = np.mean(val_loss)
+        # add perc error for every class in plot
+        for class_name in batch_seg_perc_error.keys():
+            writer.add_scalar(f'Percentage_error/val/{class_name}',
+                              np.mean([b[class_name] for b in val_percentage_error]),
+                              epoch)
+
+        writer.add_scalar('Loss/val', np.mean(val_loss), epoch)
+        writer.add_scalar('Loss/val_segment', np.mean(val_loss_segment), epoch)
+        writer.add_scalar('Loss/val_percentage', np.mean(val_loss_percentage), epoch)
+
+        # print image to tensorboard
+        # fig = plot.get_images(original=image_input, mask=bitmap, predicted=output_integer)
+        fig = plot.draw_class_bitmaps(mask=bitmap.cpu().numpy()[0],
+                                      prediction=output_soft.cpu().numpy()[0],
+                                      image=image_input.cpu().numpy()[0])
+        # writer.add_figure(f'Plots', fig, epoch)
+        writer.add_figure('CompareClasses', fig, epoch)
+        writer.flush()
+
+        scheduler.step(epoch_val_loss)
+        model.train()
+
+        if epoch_val_loss < best_val_loss:
+            torch.save(model.state_dict(), f'models/trained/{model_name}')
+            print('New best model! Current loss:', epoch_val_loss)
+            best_val_loss = epoch_val_loss
+            # TODO: also save the params? Should include the transform names? Maybe also the loss?
+
+        if epoch_val_loss > best_val_loss:
+            # if this happens X epochs in a row, abort?
+            print('Overfitting?')
+
+    print(f'Training done! Best validation loss was {best_val_loss}. Saved to file {model_name}.')
 
 print(f'Testing :D')
 test_loss = []
