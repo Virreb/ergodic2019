@@ -1,6 +1,6 @@
 
 
-def train_model(model, params, writer):
+def train_model(model, params, writer, class_weights):
     from dataprep import get_data_loaders
     import torch
     from torch.optim.lr_scheduler import ReduceLROnPlateau
@@ -14,12 +14,14 @@ def train_model(model, params, writer):
 
     best_val_loss = 1000000
 
+    model = model.to(device)
+    class_weights = torch.tensor(class_weights).to(device)
+
     # initiate
-    criterion = torch.nn.CrossEntropyLoss()
+    criterion = torch.nn.CrossEntropyLoss(weight=class_weights)
     optimizer = torch.optim.Adam(model.parameters(), lr=params['learning']['rate'])
     scheduler = ReduceLROnPlateau(optimizer, patience=params['learning']['patience'], factor=params['learning']['decay'])
     data_loaders = get_data_loaders(params)
-    model = model.to(device)
 
     print(f'Starting to train model: {params["model_name"]}')
     print('GPU available:', torch.cuda.is_available(), ' \nNumber of CPUs:', params['nbr_cpu'])
@@ -114,39 +116,3 @@ def train_model(model, params, writer):
 
     print(f'Training done! Best validation loss was {best_val_loss}. Saved to file {params["path_to_model"]}.'
           f'Took {round((time.time() - training_start_time)/60, 2)} min')
-
-
-# TODO: Remove this?
-# print(f'Testing :D')
-# test_loss = []
-# test_loss_segment = []
-# test_loss_percentage = []
-# test_percentage_error = []
-#
-# model.eval()
-# with torch.no_grad():
-#     for batch in test_loader:
-#         image_input = batch['image'].to(device)
-#         bitmap = batch['bitmap'].to(device)
-#
-#         output, class_fraction = model(image_input)
-#         segment_loss = criterion(output, bitmap)
-#         ratio_loss = ratio_loss_function(class_fraction, bitmap)
-#
-#         test_loss.append(segment_loss.data.item() + ratio_loss.item())
-#         test_loss_segment.append(segment_loss.data.item())
-#         test_loss_percentage.append(ratio_loss.item())
-#
-#         output_soft = F.softmax(output, dim=1)
-#         # _, output_integer = output_soft.max(1)    # TODO: Evaluate nbr correct pixels instead?
-#
-#         segmentation_percentages = calculate_segmentation_percentages(output_soft)
-#         batch_seg_perc_error, total_batch_seg_perc_error = \
-#             calculate_segmentation_percentage_error(segmentation_percentages, batch['percentage'])
-#
-#         test_percentage_error.append(batch_seg_perc_error)
-#
-#
-# print(f'Test loss was {np.mean(test_loss)}')
-# for class_name in batch_seg_perc_error.keys():
-#     print(f'Percentage error for {class_name}', np.mean([b[class_name] for b in test_percentage_error]))

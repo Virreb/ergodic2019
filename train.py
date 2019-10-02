@@ -23,6 +23,7 @@ model_name = f'unet_{datetime.datetime.today().strftime("%Y-%m-%d_%H%M")}.pth'
 params = params_victor
 params['model_name'] = model_name
 params['path_to_model'] = f'models/trained/{model_name}'
+class_weights = [1, 7.3, 2.5, 12.3]
 
 # init tensorboard
 writer = SummaryWriter()
