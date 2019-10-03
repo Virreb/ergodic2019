@@ -29,5 +29,5 @@ class_weights = [1, 7.3, 2.5, 12.3]
 writer = SummaryWriter()
 
 # train model
-model_pipeline.train_model(model, params, writer)
+model_pipeline.train_model(model, params, writer, class_weights)
 
