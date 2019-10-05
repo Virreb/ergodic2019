@@ -81,7 +81,13 @@ class GCN(nn.Module):
         fs3 = self.brb7(func.interpolate(fs2, fm1.size()[2:], mode='bilinear', align_corners=True) + gcfm4)  # 128
         fs4 = self.brb8(func.interpolate(fs3, fm0.size()[2:], mode='bilinear', align_corners=True))  # 256
         out = self.brb9(func.interpolate(fs4, x.shape[2:], mode='bilinear', align_corners=True))  # 512
-        return out
+
+        soft_max_activation = F.softmax(x, dim=1)
+        class_sum = torch.sum(soft_max_activation, dim=2)
+        class_sum = torch.sum(class_sum, dim=2)
+        class_fraction = class_sum/(soft_max_activation.shape[2] * soft_max_activation.shape[3])
+
+        return out, class_fraction
 
 
 if __name__=='__main__':
