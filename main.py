@@ -63,7 +63,7 @@ def analyze_image(image_path, model, device):
 
 
 def load_net(model_name):
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    from config import device
     model = UNet(3, 4).float()
     model = model.to(device)
     model.eval()
@@ -75,4 +75,4 @@ def load_net(model_name):
 
 
 if __name__ == '__main__':
-    main(model_name='unet_2019-09-29_1146.pth')
+    main(model_name='unet_2019-10-03_0912.pth')
