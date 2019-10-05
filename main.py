@@ -75,4 +75,4 @@ def load_net(model_name):
 
 
 if __name__ == '__main__':
-    main(model_name='unet_2019-10-02_0702.pth')
+    main(model_name='unet_2019-10-03_0912.pth')

@@ -1,6 +1,6 @@
 
 
-def train_model(model, params, writer, class_weights):
+def train_model(model, params, writer):
     from dataprep import get_data_loaders
     import torch
     from torch.optim.lr_scheduler import ReduceLROnPlateau
@@ -13,9 +13,10 @@ def train_model(model, params, writer, class_weights):
     import time
 
     best_val_loss = 1000000
+    best_percentage_error = {}
 
     model = model.to(device)
-    class_weights = torch.tensor(class_weights).to(device)
+    class_weights = torch.tensor(params['class_weights']).to(device)
 
     # initiate
     criterion = torch.nn.CrossEntropyLoss(weight=class_weights)
@@ -105,14 +106,100 @@ def train_model(model, params, writer, class_weights):
                     print('This is the best model so far! Saving it!')
                     torch.save(model.state_dict(), params["path_to_model"])
                     best_val_loss = epoch_val_loss
-                    # TODO: also save the params? Should include the transform names? Maybe also the loss?
+                    best_percentage_error = {class_name: np.mean([b[class_name] for b in batch_percentage_error])
+                                             for class_name in batch_percentage_error[0].keys()}
 
                 if epoch_val_loss > best_val_loss:
                     # if this happens X epochs in a row, abort?
                     print('Overfitting?')
 
             writer.flush()
-        print(f'Epoch done, took {round((time.time() - training_start_time))/60} min')
+        print(f'Epoch done, took {round((time.time() - training_start_time)/60, 2)} min')
 
+    run_time = round((time.time() - training_start_time)/60, 2)
     print(f'Training done! Best validation loss was {best_val_loss}. Saved to file {params["path_to_model"]}.'
-          f'Took {round((time.time() - training_start_time)/60, 2)} min')
+          f'Took {run_time} min')
+
+    return {
+        'val_loss': best_val_loss,
+        'percentage_error': best_percentage_error,
+        'run_time': run_time
+    }
+
+
+def create_jobs_to_run(prefix='A', remake=False):
+    from config import params_victor, jobs_spec_file_path
+    import pickle, os
+    from UnetModel import UNet
+
+    if os.path.exists(jobs_spec_file_path) and remake is False:
+        with open(jobs_spec_file_path, 'rb') as f:
+            return pickle.load(f)
+
+    learning_rates = [0.1, 0.2]
+    class_weights = [
+        [1, 1, 1, 1], [1, 2.7, 1.6, 3.5], [1, 2.0, 1.6, 5.5]
+    ]
+    models = [
+        (UNet(3, 4).float(), 'UNet')
+    ]
+
+    idx = 0
+    all_jobs = []
+    for model in models:
+        for lr in learning_rates:
+            for cw in class_weights:
+                job = params_victor.copy(deep=True)
+
+                job['id'] = idx
+                job['model'] = model[0]
+                job['model_name'] = f'{prefix}{idx}_{model[1]}'
+                job['learning']['rate'] = lr
+                job['class_weights'] = cw
+                job['status'] = None
+
+                all_jobs.append(job)
+                idx += 1
+
+    with open(jobs_spec_file_path, 'wb') as f:
+        pickle.dump(all_jobs, f)
+
+    return all_jobs
+
+
+def execute_parameter_sweep(writer):
+    import pickle, json, time
+    from config import jobs_spec_file_path
+    import datetime
+
+    sweep_start_time = datetime.datetime.today().strftime("%Y-%m-%d_%H%M")
+    sweep_start = time.time()
+
+    with open(jobs_spec_file_path, 'rb') as f:
+        all_jobs = pickle.load(f)
+
+    best_job_val_loss = 10000
+
+    for idx, job in enumerate(all_jobs):
+        if job['status'] is None:
+
+            # Add date to model name
+            job['model_name'] += f'_{sweep_start_time}'
+            job['path_to_model'] = f'models/trained/{job["model_name"]}.pth'
+            job['path_to_spec_file'] = f'models/trained/{job["model_name"]}.json'
+            model = job['model']
+
+            job['result'] = train_model(model, job, writer)
+            job['status'] = 'done'
+            all_jobs[idx] = job
+
+            with open(job['path_to_spec_file'], 'w') as f:
+                json.dump(job, f)
+
+            with open(jobs_spec_file_path, 'wb') as f:
+                pickle.dump(all_jobs, f)
+
+            if job['result']['val_loss'] < best_job_val_loss:
+                best_model_name = job['model_name']
+
+    print(f'Sweep done!\nBest model was {best_model_name} after {round((time.time() - sweep_start)/60, 2)}')
