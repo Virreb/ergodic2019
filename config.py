@@ -12,18 +12,25 @@ params_victor = {
         'decay': 0.2
     },
     'num_epochs': 150,
-    'nbr_cpu': 0,
+    'nbr_cpu': 14,
     'device': device,
     'image_size': {
-        'train': (256, 256),
+        'train': (512, 512),
         'val': (1024, 1024),
         'test': (1024, 1024)
     },
     'batch_size': {
-        'train': 8,
-        'val': 2,
-        'test': 2,
-    },
+        'UNet': {
+            'train': 4,
+            'val': 2,
+            'test': 2,
+        },
+        'GCN': {
+            'train': 32,
+            'val': 12,
+            'test': 12,
+        },
+    }
 }
 params_isak = {
     'learning': {

@@ -114,7 +114,7 @@ def train_model(model, params, writer):
                     print('Overfitting?')
 
             writer.flush()
-        print(f'Epoch done, took {round((time.time() - training_start_time)/60, 2)} min')
+        print(f'Epoch done, took {round((time.time() - epoch_start_time)/60, 2)} min')
 
     run_time = round((time.time() - training_start_time)/60, 2)
     print(f'Training done! Best validation loss was {best_val_loss}. Saved to file {params["path_to_model"]}.'

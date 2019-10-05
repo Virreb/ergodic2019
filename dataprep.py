@@ -13,20 +13,20 @@ class GLOBHEDataset(Dataset):
         self.image_names = os.listdir(f'{base_path}/{dataset_type}/images')
         self.image_paths = [f'{base_path}/{dataset_type}/images/{image_name}' for image_name in self.image_names]
         self.bitmap_paths = [path.replace('images', 'integer_masks').replace('.jpg', '.png') for path in self.image_paths]
-        self.percentage_paths = [path.replace('images', 'percentages').replace('.jpg', '.json') for path in self.image_paths]
+        # self.percentage_paths = [path.replace('images', 'percentages').replace('.jpg', '.json') for path in self.image_paths]
         self.transform = transform
 
     def __len__(self):
         return len(self.image_names)
 
     def __getitem__(self, idx):
-        with open(self.percentage_paths[idx], 'r') as f:
-            perc = json.load(f)
+#         with open(self.percentage_paths[idx], 'r') as f:
+#             perc = json.load(f)
 
         sample = {
             'image': Image.open(self.image_paths[idx]),
             'bitmap': Image.open(self.bitmap_paths[idx]),
-            'percentage': perc
+#             'percentage': perc
         }
 
         if self.transform is not None:
@@ -248,13 +248,16 @@ def get_data_loaders(params):
 
     train_loader, test_loader, val_loader = None, None, None
     if train_dataset.__len__() > 0:
-        train_loader = DataLoader(train_dataset, batch_size=params['batch_size']['train'], shuffle=True, num_workers=params['nbr_cpu'])
+        train_loader = DataLoader(train_dataset, batch_size=params['batch_size'][params['model_name']]['train'],
+                                  shuffle=True, num_workers=params['nbr_cpu'])
 
     if test_dataset.__len__() > 0:
-        test_loader = DataLoader(test_dataset, batch_size=params['batch_size']['test'], shuffle=True, num_workers=params['nbr_cpu'])
+        test_loader = DataLoader(test_dataset, batch_size=params['batch_size'][params['model_name']]['test'],
+                                 shuffle=True, num_workers=params['nbr_cpu'])
 
     if val_dataset.__len__() > 0:
-        val_loader = DataLoader(val_dataset, batch_size=params['batch_size']['val'], shuffle=True, num_workers=params['nbr_cpu'])
+        val_loader = DataLoader(val_dataset, batch_size=params['batch_size'][params['model_name']]['val'],
+                                shuffle=True, num_workers=params['nbr_cpu'])
 
     return {
         'train': train_loader,
