@@ -99,7 +99,7 @@ class ToTensor:
         return {
             'image': self._built_in_to_tensor(image),
             'bitmap': (255*self._built_in_to_tensor(bitmap)).long().squeeze(),
-            'percentage': sample['percentage']
+#             'percentage': sample['percentage']
         }
 
 
