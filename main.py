@@ -1,5 +1,5 @@
 
-def get_score_from_api(job):
+def get_score_from_api(job, verbose=True):
     import json
     import api
     import solutionHelper
@@ -15,10 +15,15 @@ def get_score_from_api(job):
     result = api.init_game(api_key)
     game_id = result["gameId"]
     rounds_left = result['numberOfRounds']
-    print("Starting a new game with id: " + game_id)
-    print("The game has {} rounds and {} images per round".format(rounds_left, result["imagesPerRound"]))
+
+    if verbose:
+        print("Starting a new game with id: " + game_id)
+        print("The game has {} rounds and {} images per round".format(rounds_left, result["imagesPerRound"]))
+
     while rounds_left > 0:
-        print("Starting new round, {} rounds left".format(rounds_left))
+        if verbose:
+            print("Starting new round, {} rounds left".format(rounds_left))
+
         solutions = []
         zip_bytes = api.get_images(api_key)
         image_names = solutionHelper.save_images_to_disk(zip_bytes, image_folder_path)
@@ -30,8 +35,11 @@ def get_score_from_api(job):
                               "RoadPercentage": image_solution["road_percentage"],
                               "WaterPercentage": image_solution["water_percentage"]})
         solution_response = api.score_solution(api_key, {"Solutions": solutions})
-        solutionHelper.print_errors(solution_response)
-        solutionHelper.print_scores(solution_response)
+
+        if verbose:
+            solutionHelper.print_errors(solution_response)
+            solutionHelper.print_scores(solution_response)
+
         total_score = solution_response['totalScore']
         rounds_left = solution_response['roundsLeft']
 

@@ -1,6 +1,6 @@
 
 
-def train_model(job, writer):
+def train_model(job, writer, verbose=True):
     from dataprep import get_data_loaders
     import torch
     from torch.optim.lr_scheduler import ReduceLROnPlateau
@@ -26,7 +26,10 @@ def train_model(job, writer):
 
     training_start_time = time.time()
     for epoch in range(job['num_epochs']):
-        print(f'\n\tEpoch {epoch+1}/{job["num_epochs"]}')
+
+        if verbose:
+            print(f'\n\tEpoch {epoch+1}/{job["num_epochs"]}')
+
         epoch_start_time = time.time()
 
         for phase in ['train', 'val']:
@@ -41,7 +44,9 @@ def train_model(job, writer):
             batch_loss_percentage = []
             batch_percentage_error = []
 
-            print('\tPhase:', phase)
+            if verbose:
+                print('\tPhase:', phase)
+
             for batch in data_loaders[phase]:
                 image_input = batch['image'].to(device)
                 bitmap = batch['bitmap'].to(device)
@@ -90,7 +95,9 @@ def train_model(job, writer):
 
             if phase == 'val':
                 epoch_val_loss = np.mean(batch_loss)
-                print('\tValidation loss:', np.round(epoch_val_loss, 2))
+
+                if verbose:
+                    print('\tValidation loss:', np.round(epoch_val_loss, 2))
 
                 scheduler.step(epoch_val_loss)
 
@@ -100,7 +107,8 @@ def train_model(job, writer):
                 writer.add_figure('CompareClasses', fig, epoch)
 
                 if epoch_val_loss < best_val_loss:
-                    print('\tThis is the best model so far! Saving it!')
+                    if verbose:
+                        print('\tThis is the best model so far! Saving it!')
                     # torch.save(model.state_dict(), job["path_to_model"])
                     best_val_loss = epoch_val_loss
                     best_model_state = model.state_dict()
@@ -109,13 +117,15 @@ def train_model(job, writer):
 
                 if epoch_val_loss > best_val_loss:
                     # if this happens X epochs in a row, abort?
-                    print('\tOverfitting?')
+                    if verbose:
+                        print('\tOverfitting?')
 
             writer.flush()
-        print(f'\tEpoch done, took {round((time.time() - epoch_start_time)/60, 2)} min')
+        if verbose:
+            print(f'\tEpoch done, took {round((time.time() - epoch_start_time)/60, 2)} min')
 
     run_time = round((time.time() - training_start_time)/60, 2)
-    print(f'\tTraining done! Best validation loss was {best_val_loss} and took {run_time} min')
+    print(f'\tTraining done! Best validation loss was {round(best_val_loss, 2)} and took {run_time} min')
 
     return {
         'val_loss': best_val_loss,
@@ -175,13 +185,15 @@ def execute_jobs(sweep_name, writer):
     jobs_to_run = [a for a in all_jobs.keys() if all_jobs[a]['status'] is None]
     for idx, job_id in enumerate(jobs_to_run):
         job = all_jobs[job_id]
-        print(f'Starting job_id: {job_id} to train model: {job["model_name"]}. \t {idx+1}/{len(jobs_to_run)}')
+        print(f'\nStarting job_id: {job_id} to train model: {job["model_name"]}. \t {idx+1}/{len(jobs_to_run)}')
 
         # train model
-        job['result'] = train_model(job, writer)
+        job['result'] = train_model(job, writer, verbose=False)
 
         # get result from API
-        job['total_score'] = get_score_from_api(job)
+        print('\tTesting against API')
+        job['total_score'] = get_score_from_api(job, verbose=False)
+        print('\tTest score:', job['total_score'])
 
         job['status'] = 'done'
         all_jobs[job_id] = job
