@@ -1,6 +1,4 @@
-import datetime
-from math import sqrt
-from config import params_isak, params_victor
+from config import params_isak, params_victor, device
 from torch.utils.tensorboard import SummaryWriter
 from UnetModel import UNet
 import model_pipeline
@@ -9,35 +7,63 @@ from GCN import GCN
 # start tensorboard with tensorboard --logdir='runs'
 # watch -n 0.5 nvidia-smi
 
-# TODO: Test transfer learning
-# TODO: Utilize regularization'
-# TODO: Create function that calls the API for new pictures and calculates errors? As a test.
-# TODO: Framework for testing parameter comb.
-# TODO: Merge model and params selection. Create list of dicts to run over? Save every dict to disk also?
-
-
-# choose model
-model = UNet(3, 4).float()
-model_name = f'UNet'
-# model_name = f'unet_{datetime.datetime.today().strftime("%Y-%m-%d_%H%M")}.pth'
-
-model_2 = GCN(4)
-for tmp_layer in [model_2.layer0, model_2.layer1, model_2.layer2, model_2.layer3, model_2.layer4]:
-    for param in tmp_layer.parameters():
-        param.requires_grad = False
-
-model_2_name = f'GCN'
-# model_2_name = f'gcn_{datetime.datetime.today().strftime("%Y-%m-%d_%H%M")}.pth'
-
-# get parameters''
-params = params_victor
-params['model_name'] = model_2_name
-params['path_to_model'] = f'models/trained/{model_2_name}.pth'
-params['class_weights'] = [1, 7.3**0.25, 2.5**0.25, 12.3**0.25]
+# TODO: Utilize regularization?
+# TODO: Create model that only outputs percentage
+# TODO: Test one model per class
+# TODO: Implement logic to load sweep and get best model and write stats
 
 # init tensorboard
 writer = SummaryWriter()
 
-# train model
-model_pipeline.train_model(model_2, params, writer)
+base_params = {
+    'learning': {
+        'rate': 0.1,
+        'patience': 2,
+        'decay': 0.2
+    },
+    'num_epochs': 1,
+    'nbr_cpu': 14,
+    'device': device,
+    'image_size': {
+        'train': (512, 512),
+        'val': (1024, 1024),
+        'test': (1024, 1024)
+    },
+    'batch_size': {
+        'UNet': {
+            'train': 4,
+            'val': 2,
+            'test': 2,
+        },
+        'GCN': {
+            'train': 32,
+            'val': 12,
+            'test': 12,
+        },
+    }
+}
+# base_params = params_isak
 
+# init models to sweep
+model_gcn = GCN(4)
+for tmp_layer in [model_gcn.layer0, model_gcn.layer1, model_gcn.layer2, model_gcn.layer3, model_gcn.layer4]:
+    for param in tmp_layer.parameters():
+        param.requires_grad = False
+
+models = [
+    (UNet(3, 4), 'UNet'),
+    (model_gcn, 'GCN'),
+]
+
+# set parameters to sweep
+learning_rates = [0.1, 0.2]
+class_weights = [
+    [1, 1, 1, 1]
+    # [1, 1, 1, 1], [1, 7.3**0.25, 2.5**0.25, 12.3**0.25], [1, 7.3**0.25, 2.5**0.25, 12.3**0.5]
+]
+
+sweep_name = 'test'
+model_pipeline.create_jobs_to_run(sweep_name, base_params=base_params, models=models,
+                                  learning_rates=learning_rates, class_weights=class_weights,
+                                  force_remake=False)
+model_pipeline.execute_jobs(sweep_name, writer)

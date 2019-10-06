@@ -122,11 +122,11 @@ def draw_class_bitmaps(mask, prediction, image):
 
 
 if __name__ == '__main__':
-    from main import load_net
+    from main import load_model
     import torch
     import torch.nn.functional as F
     from dataprep import GLOBHEDataset, ToTensor
-    model, device = load_net('unet_2019-09-29_1251.pth')
+    model, device = load_model('unet_2019-09-29_1251.pth')
     with torch.no_grad():
         train_dataset = GLOBHEDataset('data', 'train')
 

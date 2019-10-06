@@ -1,23 +1,16 @@
-import api
-import solutionHelper
-import json
-import torch
-from UnetModel import UNet
-from PIL import Image
-from torchvision import transforms
 
-with open('credentials.json', 'r') as f:
-    credentials = json.load(f)
+def get_score_from_api(job):
+    import json
+    import api
+    import solutionHelper
 
-api_key = credentials['api-token']
-image_folder_path = 'api_images'
+    with open('credentials.json', 'r') as f:
+        credentials = json.load(f)
 
+    api_key = credentials['api-token']
+    image_folder_path = 'api_images'
 
-pil_image_2_tensor = transforms.ToTensor()
-
-
-def main(model_name):
-    model, device = load_net(model_name)
+    model = load_model(job)
 
     result = api.init_game(api_key)
     game_id = result["gameId"]
@@ -31,7 +24,7 @@ def main(model_name):
         image_names = solutionHelper.save_images_to_disk(zip_bytes, image_folder_path)
         for name in image_names:
             path = image_folder_path + "/" + name
-            image_solution = analyze_image(path, model, device)
+            image_solution = analyze_image(path, model)
             solutions.append({"ImageName": name,
                               "BuildingPercentage": image_solution["building_percentage"],
                               "RoadPercentage": image_solution["road_percentage"],
@@ -39,17 +32,19 @@ def main(model_name):
         solution_response = api.score_solution(api_key, {"Solutions": solutions})
         solutionHelper.print_errors(solution_response)
         solutionHelper.print_scores(solution_response)
+        total_score = solution_response['totalScore']
         rounds_left = solution_response['roundsLeft']
 
     # solutionHelper.clean_images_from_folder(image_folder_path)
+    return total_score
 
 
-def analyze_image(image_path, model, device):
-    """
-    ----------------------------------------------------
-    TODO Implement your image recognition algorithm here
-    ----------------------------------------------------
-    """
+def analyze_image(image_path, model):
+    from PIL import Image
+    from torchvision import transforms
+    from config import device
+    pil_image_2_tensor = transforms.ToTensor()
+
     pil_image = Image.open(image_path)
     image_tensor = pil_image_2_tensor(pil_image)
     image_tensor = image_tensor.to(device).unsqueeze(0)
@@ -62,17 +57,15 @@ def analyze_image(image_path, model, device):
     return return_dict
 
 
-def load_net(model_name):
+def load_model(job):
     from config import device
-    model = UNet(3, 4).float()
-    model = model.to(device)
-    model.eval()
+    # import torch
 
-    model_path = f'models/trained/{model_name}'
-    model.load_state_dict(torch.load(model_path, map_location=device))
+    model = job['model'].float().to(device).eval()
+    model.load_state_dict(job['result']['model_state'])
 
-    return model, device
+    return model
 
 
 if __name__ == '__main__':
-    main(model_name='unet_2019-10-03_0912.pth')
+    get_score_from_api(job='GCN.pth')

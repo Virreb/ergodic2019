@@ -2,7 +2,7 @@ import os
 import torch
 
 CLASS_ORDER = ['nothing', 'water', 'building', 'road']
-jobs_spec_file_path = 'jobs_spec_file.pkl'
+jobs_spec_file_path = 'jobs/'
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 params_victor = {

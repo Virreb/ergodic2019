@@ -4,6 +4,9 @@ from dataprep import split_data_to_train_val_test
 # split_data_to_train_val_test(raw_base_path='data_raw/Training_dataset',
 #                              new_base_path='data', val_ratio=0.3, test_ratio=0.0)
 
+if os.path.exists('jobs') is False:
+    os.mkdir('jobs')
+
 if os.path.exists('models') is False:
     os.mkdir('models')
 
