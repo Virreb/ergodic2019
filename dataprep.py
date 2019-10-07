@@ -107,8 +107,8 @@ class RescalePretrained:
     def __call__(self, sample):
         # should be called after 2 tensor
         image = sample['image']
-        mean = torch.tensor([0.485, 0.456, 0.406])
-        std = torch.tensor([0.229, 0.224, 0.225])
+        mean = [0.485, 0.456, 0.406]
+        std = [0.229, 0.224, 0.225]
         for i in range(3):
             image[i] = (image[i]-mean[i])/std[i]
 
