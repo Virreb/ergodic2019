@@ -3,6 +3,8 @@ from torch.utils.tensorboard import SummaryWriter
 from UnetModel import UNet
 import model_pipeline
 from GCN import GCN
+from Deeplab import DeeplabFork
+from perc_model import get_resnet_101
 
 # start tensorboard with tensorboard --logdir='runs'
 # watch -n 0.5 nvidia-smi
@@ -40,6 +42,16 @@ base_params = {
             'val': 12,
             'test': 12,
         },
+        'perc_resnet101': {
+            'train': 32,
+            'val': 12,
+            'test': 12,
+        },
+        'deeplab': {
+            'train': 24,
+            'val': 8,
+            'test': 8,
+        },
     }
 }
 # base_params = params_isak
@@ -50,19 +62,24 @@ for tmp_layer in [model_gcn.layer0, model_gcn.layer1, model_gcn.layer2, model_gc
     for param in tmp_layer.parameters():
         param.requires_grad = False
 
+deeplab = DeeplabFork()
+
 models = [
 #     (UNet(3, 4), 'UNet'),
-    (model_gcn, 'GCN'),
+#    (model_gcn, 'GCN'),
+    (deeplab, 'deeplab'),
+    # (get_resnet_101(4), 'perc_resnet101'),
 ]
 
 # set parameters to sweep
-learning_rates = [0.05, 0.1, 0.2]
+learning_rates = [0.1, 0.2]
 class_weights = [
-    [1, 1, 1, 1], [1, 3, 2, 6], [1, 7.3**0.25, 2.5**0.25, 12.3**0.75]
+    # [1, 1, 1, 1]
+    [1, 1, 1, 1], [1, 7.3**0.25, 2.5**0.25, 12.3**0.75]
 ]
 
-sweep_name = 'gcn_monday'
+sweep_name = 'google_tuesday'
 model_pipeline.create_jobs_to_run(sweep_name, base_params=base_params, models=models,
                                   learning_rates=learning_rates, class_weights=class_weights,
-                                  force_remake=False)
+                                  force_remake=True)
 model_pipeline.execute_jobs(sweep_name, writer)

@@ -14,20 +14,15 @@ class GLOBHEDataset(Dataset):
         self.image_names = os.listdir(f'{base_path}/{dataset_type}/images')
         self.image_paths = [f'{base_path}/{dataset_type}/images/{image_name}' for image_name in self.image_names]
         self.bitmap_paths = [path.replace('images', 'integer_masks').replace('.jpg', '.png') for path in self.image_paths]
-        # self.percentage_paths = [path.replace('images', 'percentages').replace('.jpg', '.json') for path in self.image_paths]
         self.transform = transform
 
     def __len__(self):
         return len(self.image_names)
 
     def __getitem__(self, idx):
-#         with open(self.percentage_paths[idx], 'r') as f:
-#             perc = json.load(f)
-
         sample = {
             'image': Image.open(self.image_paths[idx]),
             'bitmap': Image.open(self.bitmap_paths[idx]),
-#             'percentage': perc
         }
 
         if self.transform is not None:
@@ -100,8 +95,8 @@ class ToTensor:
         return {
             'image': self._built_in_to_tensor(image),
             'bitmap': (255*self._built_in_to_tensor(bitmap)).long().squeeze(),
-#             'percentage': sample['percentage']
         }
+
 
 class RescalePretrained:
     def __call__(self, sample):
@@ -246,14 +241,20 @@ def generate_integer_bitmaps(rgb_bitmap):
 def get_data_loaders(params):
 
     # Transforms
-    GLOBHE_transforms_train = transforms.Compose([
+    train_transforms = [
         RandomCrop(params['image_size']['train']),
         RandomFlip(),
         RandomRotate(),
-        ToTensor()
-    ])
+        ToTensor()]
 
-    GLOBHE_transforms_val = transforms.Compose([ToTensor()])
+    val_transforms = [ToTensor()]
+
+    if params['model_name'] == 'deeplab':
+        train_transforms.append(RescalePretrained())
+        val_transforms.append(RescalePretrained())
+
+    GLOBHE_transforms_train = transforms.Compose(train_transforms)
+    GLOBHE_transforms_val = transforms.Compose(val_transforms)
 
     train_dataset = GLOBHEDataset('data', 'train', transform=GLOBHE_transforms_train)
     test_dataset = GLOBHEDataset('data', 'test', transform=GLOBHE_transforms_val)

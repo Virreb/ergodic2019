@@ -1,6 +1,7 @@
 import torch.nn.functional as F
 from torch import nn
 from torchvision import models
+import torch
 
 
 def weight_reset(m):
@@ -34,7 +35,7 @@ class DeeplabFork(nn.Module):
         x = features["out"]
         x = self.aspp(x)
         x = self.conv1(x)
-        x = self.bn1(x)
+        x = self.bn(x)      # TODO: Changed from bn to bn1?
         x = self.conv2(x)
         x = F.interpolate(x, size=input_shape, mode='bilinear', align_corners=False)
 

@@ -1,5 +1,126 @@
 
 
+def train_percentage_model(job, writer, verbose=True):
+    from dataprep import get_data_loaders
+    import torch
+    from torch.optim.lr_scheduler import ReduceLROnPlateau
+    import numpy as np
+    import torch.nn.functional as F
+    import plot
+    from help_functions import calculate_segmentation_percentages, calculate_segmentation_percentage_error, \
+        correct_mask_bitmaps_for_crop, ratio_loss_function
+    from config import device
+    import time
+
+    best_percentage_loss = 10000000000
+    best_percentage_error = {}
+
+    model = job['model'].float().to(device)
+    # class_weights = torch.tensor(job['class_weights']).float().to(device)
+
+    # initiate
+    # criterion = torch.nn.CrossEntropyLoss(weight=class_weights)
+    optimizer = torch.optim.Adam(model.parameters(), lr=job['learning']['rate'])
+    scheduler = ReduceLROnPlateau(optimizer, patience=job['learning']['patience'], factor=job['learning']['decay'])
+    data_loaders = get_data_loaders(job)
+
+    training_start_time = time.time()
+    for epoch in range(job['num_epochs']):
+
+        if verbose:
+            print(f'\n\tEpoch {epoch+1}/{job["num_epochs"]}')
+        epoch_start_time = time.time()
+
+        for phase in ['train', 'val']:
+            if phase == 'train':
+                model.train()
+            else:
+                model.eval()
+
+            batch_loss_percentage = []
+            batch_percentage_error = []
+
+            if verbose:
+                print('\tPhase:', phase)
+
+            for batch in data_loaders[phase]:
+                image_input = batch['image'].to(device)
+                bitmap = batch['bitmap'].to(device)
+
+                optimizer.zero_grad()
+
+                with torch.set_grad_enabled(phase == 'train'):
+                    class_fraction = model(image_input)
+                    print(class_fraction.size())
+                    print(bitmap.size())
+                    # TODO: redo ratio_loss function
+                    # TODO: redo segmentation percentage errors
+
+                    ratio_loss = ratio_loss_function(class_fraction, bitmap)
+                    print(ratio_loss.size())
+                    print(class_fraction)
+                    exit(0)
+
+                    if phase == 'train':
+                        ratio_loss.backward(retain_graph=True)
+                        # segment_loss.backward()
+                        optimizer.step()
+
+                # Correct bitmaps to crop to get percentages to evaluate to
+                corrected_bitmaps = correct_mask_bitmaps_for_crop(bitmap)
+
+                # calulate percentage error
+                batch_seg_perc_error, total_batch_seg_perc_error = \
+                    calculate_segmentation_percentage_error(class_fraction, corrected_bitmaps)
+
+                # save values for evaluating
+                batch_percentage_error.append(batch_seg_perc_error)
+                batch_loss_percentage.append(ratio_loss.item())
+
+            # add perc error for every class in plot
+            for class_name in batch_seg_perc_error.keys():
+                writer.add_scalar(f'Percentage_error/{phase}/{class_name}',
+                                  np.mean([b[class_name] for b in batch_percentage_error]),
+                                  epoch)
+
+            writer.add_scalar(f'Loss/{phase}_percentage', np.mean(batch_loss_percentage), epoch)
+
+            if phase == 'val':
+                epoch_val_loss = np.mean(batch_loss_percentage)
+
+                if verbose:
+                    print('\tValidation loss:', np.round(epoch_val_loss, 2))
+
+                scheduler.step(epoch_val_loss)
+
+                if epoch_val_loss < best_percentage_loss:
+                    if verbose:
+                        print('\tThis is the best model so far! Saving it!')
+                    best_percentage_loss = epoch_val_loss
+                    best_model_state = model.state_dict()
+                    best_percentage_error = {class_name: np.mean([b[class_name] for b in batch_percentage_error])
+                                             for class_name in batch_percentage_error[0].keys()}
+
+                if epoch_val_loss > best_percentage_loss:
+                    # if this happens X epochs in a row, abort?
+                    if verbose:
+                        print('\tOverfitting?')
+
+            writer.flush()
+        if verbose:
+            print(f'\tEpoch done, took {round((time.time() - epoch_start_time)/60, 2)} min')
+
+    run_time = round((time.time() - training_start_time)/60, 2)
+    print(f'\tTraining done! Best validation loss was {round(best_percentage_loss, 2)} and took {run_time} min')
+
+    return {
+        'val_loss': best_percentage_loss,
+        'percentage_error': best_percentage_error,
+        'model_state': best_model_state,
+        'run_time': run_time
+    }
+
+
 def train_model(job, writer, verbose=True):
     from dataprep import get_data_loaders
     import torch
@@ -29,11 +150,9 @@ def train_model(job, writer, verbose=True):
 
         if verbose:
             print(f'\n\tEpoch {epoch+1}/{job["num_epochs"]}')
-
         epoch_start_time = time.time()
 
         for phase in ['train', 'val']:
-
             if phase == 'train':
                 model.train()
             else:
@@ -182,13 +301,17 @@ def execute_jobs(sweep_name, writer):
         all_jobs = pickle.load(f)
 
     best_job_val_loss = 100000000
+    best_model_name, best_job_id = None, None
     jobs_to_run = [a for a in all_jobs.keys() if all_jobs[a]['status'] is None]
     for idx, job_id in enumerate(jobs_to_run):
         job = all_jobs[job_id]
         print(f'\nStarting job_id:{job_id} with model:{job["model_name"]}. \t {idx+1}/{len(jobs_to_run)}')
 
         # train model
-        job['result'] = train_model(job, writer, verbose=False)
+        if job['model_name'].startswith('perc'):
+            job['result'] = train_percentage_model(job, writer, verbose=True)
+        else:
+            job['result'] = train_model(job, writer, verbose=True)
 
         # get result from API
         print('\tTesting against API')
