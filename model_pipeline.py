@@ -175,7 +175,7 @@ def execute_jobs(sweep_name, writer):
     jobs_spec_file_path = f'jobs/{sweep_name}.pkl'
     sweep_start = time.time()
 
-    print(f'Starting sweeping jobs called "{sweep_name}"\n')
+    print(f'Starting sweeping jobs called "{sweep_name}"')
     print('On device:', device)
 
     with open(jobs_spec_file_path, 'rb') as f:
@@ -185,7 +185,7 @@ def execute_jobs(sweep_name, writer):
     jobs_to_run = [a for a in all_jobs.keys() if all_jobs[a]['status'] is None]
     for idx, job_id in enumerate(jobs_to_run):
         job = all_jobs[job_id]
-        print(f'\nStarting job_id: {job_id} to train model: {job["model_name"]}. \t {idx+1}/{len(jobs_to_run)}')
+        print(f'\nStarting job_id:{job_id} with model:{job["model_name"]}. \t {idx+1}/{len(jobs_to_run)}')
 
         # train model
         job['result'] = train_model(job, writer, verbose=False)

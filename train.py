@@ -21,7 +21,7 @@ base_params = {
         'patience': 2,
         'decay': 0.2
     },
-    'num_epochs': 1,
+    'num_epochs': 60,
     'nbr_cpu': 14,
     'device': device,
     'image_size': {
@@ -51,18 +51,17 @@ for tmp_layer in [model_gcn.layer0, model_gcn.layer1, model_gcn.layer2, model_gc
         param.requires_grad = False
 
 models = [
-    (UNet(3, 4), 'UNet'),
+#     (UNet(3, 4), 'UNet'),
     (model_gcn, 'GCN'),
 ]
 
 # set parameters to sweep
-learning_rates = [0.1, 0.2]
+learning_rates = [0.05, 0.1, 0.2]
 class_weights = [
-    [1, 1, 1, 1]
-    # [1, 1, 1, 1], [1, 7.3**0.25, 2.5**0.25, 12.3**0.25], [1, 7.3**0.25, 2.5**0.25, 12.3**0.5]
+    [1, 1, 1, 1], [1, 3, 2, 6], [1, 7.3**0.25, 2.5**0.25, 12.3**0.75]
 ]
 
-sweep_name = 'test'
+sweep_name = 'gcn_monday'
 model_pipeline.create_jobs_to_run(sweep_name, base_params=base_params, models=models,
                                   learning_rates=learning_rates, class_weights=class_weights,
                                   force_remake=False)
