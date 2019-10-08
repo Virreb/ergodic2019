@@ -1,5 +1,4 @@
 from config import params_isak, params_victor, device
-from torch.utils.tensorboard import SummaryWriter
 from UnetModel import UNet
 import model_pipeline
 from GCN import GCN
@@ -13,16 +12,13 @@ from perc_model import get_resnet_101
 # TODO: Create model that only outputs percentage
 # TODO: Test one model per class
 
-# init tensorboard
-writer = SummaryWriter()
-
 base_params = {
     'learning': {
         'rate': 0.1,
         'patience': 2,
         'decay': 0.2
     },
-    'num_epochs': 50,
+    'num_epochs': 25,
     'nbr_cpu': 14,
     'device': device,
     'image_size': {
@@ -61,7 +57,9 @@ for tmp_layer in [model_gcn.layer0, model_gcn.layer1, model_gcn.layer2, model_gc
     for param in tmp_layer.parameters():
         param.requires_grad = False
 
-deeplab = DeeplabFork()
+deeplab_1 = DeeplabFork(freezed_backbone=False, freezed_aspp=False)
+deeplab_2 = DeeplabFork(freezed_backbone=True, freezed_aspp=False)
+deeplab_3 = DeeplabFork(freezed_backbone=True, freezed_aspp=True)
 
 for param in deeplab.parameters():
     param.requires_grad = True
@@ -69,27 +67,25 @@ for param in deeplab.parameters():
 models = [
 #     (UNet(3, 4), 'UNet'),
 #    (model_gcn, 'GCN'),
-    (deeplab, 'deeplab'),
-    # (get_resnet_101(4), 'perc_resnet101'),
+    (deeplab_1, 'deeplab'),
+    (deeplab_2, 'deeplab_fr_bb'),
+    (deeplab_3, 'deeplab_fr_bb_fr_aspp'),
+    (get_resnet_101(4), 'perc_resnet101'),
 ]
 
 # set parameters to sweep
-learning_rates = [0.1]
+learning_rates = [0.01]
 class_weights = [
-    # [1, 1, 1, 1]
-    [1, 1, 1, 1], [1, 7.3**0.5, 2.5**0.5, 12.3**0.5], [1, 7.3**0.25, 2.5**0.25, 12.3**0.25]
-learning_rates = [0.1#, 0.2]
-class_weights = [
-    # [1, 1, 1, 1]
-    [1, 1, 1, 1]#, [1, 7.3**0.25, 2.5**0.25, 12.3**0.75]
+    [1, 1, 1, 1]
+    # [1, 1, 1, 1], [1, 7.3**0.5, 2.5**0.5, 12.3**0.5], [1, 7.3**0.25, 2.5**0.25, 12.3**0.25]
 ]
 
-sweep_name = 'google_tuesday'
+sweep_name = 'runs_wednesday'
 model_pipeline.create_jobs_to_run(sweep_name, base_params=base_params, models=models,
                                   learning_rates=learning_rates, class_weights=class_weights,
                                   force_remake=True)
-model_pipeline.execute_jobs(sweep_name, writer)
+model_pipeline.execute_jobs(sweep_name)
 
 model_pipeline.print_sweep_overview(sweep_name)
-model_pipeline.load_job_from_sweep(sweep_name, idx)
-model = job['model'].load_state_dict(job['result']['model_state'])
+# model_pipeline.load_job_from_sweep(sweep_name, idx)
+# model = job['model'].load_state_dict(job['result']['model_state'])

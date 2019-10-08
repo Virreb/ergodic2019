@@ -286,11 +286,11 @@ def create_jobs_to_run(sweep_name, base_params, models, learning_rates, class_we
         return all_jobs
 
 
-def execute_jobs(sweep_name, writer):
+def execute_jobs(sweep_name):
     import pickle, time
     from main import get_score_from_api
     from config import device
-
+    from torch.utils.tensorboard import SummaryWriter
     jobs_spec_file_path = f'jobs/{sweep_name}.pkl'
     sweep_start = time.time()
 
@@ -306,6 +306,7 @@ def execute_jobs(sweep_name, writer):
     for idx, job_id in enumerate(jobs_to_run):
         job = all_jobs[job_id]
         print(f'\nStarting job_id:{job_id} with model:{job["model_name"]}. \t {idx+1}/{len(jobs_to_run)}')
+        writer = SummaryWriter()
 
         # train model
         if job['model_name'].startswith('perc'):
