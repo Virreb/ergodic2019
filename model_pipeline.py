@@ -9,7 +9,7 @@ def train_percentage_model(job, writer, verbose=True):
     import plot
     from help_functions import calculate_segmentation_percentages, calculate_segmentation_percentage_error, \
         correct_mask_bitmaps_for_crop, ratio_loss_function
-    from config import device
+    from config import device, CLASS_ORDER
     import time
 
     best_percentage_loss = 10000000000
@@ -51,15 +51,15 @@ def train_percentage_model(job, writer, verbose=True):
 
                 with torch.set_grad_enabled(phase == 'train'):
                     class_fraction = model(image_input)
-                    print(class_fraction.size())
-                    print(bitmap.size())
+                    # print(class_fraction.size())
+                    # print(bitmap.size())
                     # TODO: redo ratio_loss function
                     # TODO: redo segmentation percentage errors
 
                     ratio_loss = ratio_loss_function(class_fraction, bitmap)
-                    print(ratio_loss.size())
-                    print(class_fraction)
-                    exit(0)
+                    # print(ratio_loss.size())
+                    # print(class_fraction)
+                    # exit(0)
 
                     if phase == 'train':
                         ratio_loss.backward(retain_graph=True)
@@ -69,9 +69,16 @@ def train_percentage_model(job, writer, verbose=True):
                 # Correct bitmaps to crop to get percentages to evaluate to
                 corrected_bitmaps = correct_mask_bitmaps_for_crop(bitmap)
 
+                class_fraction_list = list()
+                for i in range(class_fraction.shape[0]):
+                    tmp_dict = {}
+                    for j, class_name in enumerate(CLASS_ORDER):
+                        tmp_dict[class_name] = class_fraction[i, j].cpu().item()
+                    class_fraction_list.append(tmp_dict)
+
                 # calulate percentage error
                 batch_seg_perc_error, total_batch_seg_perc_error = \
-                    calculate_segmentation_percentage_error(class_fraction, corrected_bitmaps)
+                    calculate_segmentation_percentage_error(class_fraction_list, corrected_bitmaps)
 
                 # save values for evaluating
                 batch_percentage_error.append(batch_seg_perc_error)
