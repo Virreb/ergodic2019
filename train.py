@@ -12,7 +12,6 @@ from perc_model import get_resnet_101
 # TODO: Utilize regularization?
 # TODO: Create model that only outputs percentage
 # TODO: Test one model per class
-# TODO: Implement logic to load sweep and get best model and write stats
 
 # init tensorboard
 writer = SummaryWriter()
@@ -23,7 +22,7 @@ base_params = {
         'patience': 2,
         'decay': 0.2
     },
-    'num_epochs': 60,
+    'num_epochs': 50,
     'nbr_cpu': 14,
     'device': device,
     'image_size': {
@@ -75,6 +74,10 @@ models = [
 ]
 
 # set parameters to sweep
+learning_rates = [0.1]
+class_weights = [
+    # [1, 1, 1, 1]
+    [1, 1, 1, 1], [1, 7.3**0.5, 2.5**0.5, 12.3**0.5], [1, 7.3**0.25, 2.5**0.25, 12.3**0.25]
 learning_rates = [0.1#, 0.2]
 class_weights = [
     # [1, 1, 1, 1]
@@ -86,3 +89,7 @@ model_pipeline.create_jobs_to_run(sweep_name, base_params=base_params, models=mo
                                   learning_rates=learning_rates, class_weights=class_weights,
                                   force_remake=True)
 model_pipeline.execute_jobs(sweep_name, writer)
+
+model_pipeline.print_sweep_overview(sweep_name)
+model_pipeline.load_job_from_sweep(sweep_name, idx)
+model = job['model'].load_state_dict(job['result']['model_state'])
