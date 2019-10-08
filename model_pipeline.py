@@ -331,3 +331,33 @@ def execute_jobs(sweep_name, writer):
 
     print(f'Sweep done!\nBest model for {sweep_name} was {best_model_name} in job {best_job_id} '
           f'after {round((time.time() - sweep_start)/60, 2)}min')
+
+
+def print_sweep_overview(sweep_name):
+    import pickle, time
+
+    jobs_spec_file_path = f'jobs/{sweep_name}.pkl'
+
+    print(f'Loading sweeping jobs called "{sweep_name}"')
+
+    with open(jobs_spec_file_path, 'rb') as f:
+        all_jobs = pickle.load(f)
+
+    for job_id in all_jobs:
+        job = all_jobs[job_id]
+        print(f'Job {job_id} with model {job["model_name"]} got a val loss of {job["result"]["val_loss"]} and a test score of {job["total_score"]}')
+
+def load_job_from_sweep(sweep_name, idx):
+    import pickle, time
+
+    jobs_spec_file_path = f'jobs/{sweep_name}.pkl'
+    with open(jobs_spec_file_path, 'rb') as f:
+        all_jobs = pickle.load(f)
+
+    return all_jobs[idx]
+
+if __name__ == '__main__':
+    print_sweep_overview('google_tuesday')
+    job = load_job_from_sweep('google_tuesday', 0)
+    print(job.keys())
+    

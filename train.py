@@ -23,7 +23,7 @@ base_params = {
         'patience': 2,
         'decay': 0.2
     },
-    'num_epochs': 60,
+    'num_epochs': 50,
     'nbr_cpu': 14,
     'device': device,
     'image_size': {
@@ -72,10 +72,10 @@ models = [
 ]
 
 # set parameters to sweep
-learning_rates = [0.1, 0.2]
+learning_rates = [0.1]
 class_weights = [
     # [1, 1, 1, 1]
-    [1, 1, 1, 1], [1, 7.3**0.25, 2.5**0.25, 12.3**0.75]
+    [1, 1, 1, 1], [1, 7.3**0.5, 2.5**0.5, 12.3**0.5], [1, 7.3**0.25, 2.5**0.25, 12.3**0.25]
 ]
 
 sweep_name = 'google_tuesday'
