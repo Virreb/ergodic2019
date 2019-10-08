@@ -64,6 +64,9 @@ for tmp_layer in [model_gcn.layer0, model_gcn.layer1, model_gcn.layer2, model_gc
 
 deeplab = DeeplabFork()
 
+for param in deeplab.parameters():
+    param.requires_grad = True
+
 models = [
 #     (UNet(3, 4), 'UNet'),
 #    (model_gcn, 'GCN'),
@@ -72,10 +75,10 @@ models = [
 ]
 
 # set parameters to sweep
-learning_rates = [0.1, 0.2]
+learning_rates = [0.1#, 0.2]
 class_weights = [
     # [1, 1, 1, 1]
-    [1, 1, 1, 1], [1, 7.3**0.25, 2.5**0.25, 12.3**0.75]
+    [1, 1, 1, 1]#, [1, 7.3**0.25, 2.5**0.25, 12.3**0.75]
 ]
 
 sweep_name = 'google_tuesday'
