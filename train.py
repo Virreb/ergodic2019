@@ -61,9 +61,6 @@ deeplab_1 = DeeplabFork(freezed_backbone=False, freezed_aspp=False)
 deeplab_2 = DeeplabFork(freezed_backbone=True, freezed_aspp=False)
 deeplab_3 = DeeplabFork(freezed_backbone=True, freezed_aspp=True)
 
-for param in deeplab.parameters():
-    param.requires_grad = True
-
 models = [
 #     (UNet(3, 4), 'UNet'),
 #    (model_gcn, 'GCN'),
