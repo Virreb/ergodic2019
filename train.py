@@ -18,7 +18,7 @@ base_params = {
         'patience': 2,
         'decay': 0.2
     },
-    'num_epochs': 25,
+    'num_epochs': 1,
     'nbr_cpu': 14,
     'device': device,
     'image_size': {
@@ -43,6 +43,16 @@ base_params = {
             'test': 12,
         },
         'deeplab': {
+            'train': 2,
+            'val': 1,
+            'test': 1,
+        },
+        'deeplab_fr_bb': {
+            'train': 16,
+            'val': 6,
+            'test': 6,
+        },
+        'deeplab_fr_bb_fr_aspp': {
             'train': 24,
             'val': 8,
             'test': 8,

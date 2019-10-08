@@ -263,15 +263,15 @@ def get_data_loaders(params):
     train_loader, test_loader, val_loader = None, None, None
     if train_dataset.__len__() > 0:
         train_loader = DataLoader(train_dataset, batch_size=params['batch_size'][params['model_name']]['train'],
-                                  shuffle=True, num_workers=params['nbr_cpu'])
+                                  shuffle=True, drop_last=True, num_workers=params['nbr_cpu'])
 
     if test_dataset.__len__() > 0:
         test_loader = DataLoader(test_dataset, batch_size=params['batch_size'][params['model_name']]['test'],
-                                 shuffle=True, num_workers=params['nbr_cpu'])
+                                 shuffle=True, drop_last=True, num_workers=params['nbr_cpu'])
 
     if val_dataset.__len__() > 0:
         val_loader = DataLoader(val_dataset, batch_size=params['batch_size'][params['model_name']]['val'],
-                                shuffle=True, num_workers=params['nbr_cpu'])
+                                shuffle=True, drop_last=True, num_workers=params['nbr_cpu'])
 
     return {
         'train': train_loader,
