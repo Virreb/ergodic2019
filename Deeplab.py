@@ -10,7 +10,7 @@ def weight_reset(m):
 
 
 class DeeplabFork(nn.Module):
-    def __init__(self, pretrained=True, freezed_backbone=True):
+    def __init__(self, pretrained=True, freezed_backbone=True, freezed_aspp=False):
         super(DeeplabFork, self).__init__()
         deeplab = models.segmentation.deeplabv3_resnet101(pretrained=pretrained)
         self.backbone = deeplab.backbone
@@ -18,6 +18,7 @@ class DeeplabFork(nn.Module):
         if freezed_backbone:
             for param in deeplab.backbone.parameters():
                 param.requires_grad = False
+        if freezed_aspp:
             for param in self.aspp.parameters():
                 param.requires_grad = False
 
@@ -35,7 +36,7 @@ class DeeplabFork(nn.Module):
         x = features["out"]
         x = self.aspp(x)
         x = self.conv1(x)
-        x = self.bn(x)      # TODO: Changed from bn to bn1?
+        x = self.bn(x)
         x = self.conv2(x)
         x = F.interpolate(x, size=input_shape, mode='bilinear', align_corners=False)
 

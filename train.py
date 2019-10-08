@@ -12,7 +12,6 @@ from perc_model import get_resnet_101
 # TODO: Utilize regularization?
 # TODO: Create model that only outputs percentage
 # TODO: Test one model per class
-# TODO: Implement logic to load sweep and get best model and write stats
 
 # init tensorboard
 writer = SummaryWriter()
@@ -64,6 +63,9 @@ for tmp_layer in [model_gcn.layer0, model_gcn.layer1, model_gcn.layer2, model_gc
 
 deeplab = DeeplabFork()
 
+for param in deeplab.parameters():
+    param.requires_grad = True
+
 models = [
 #     (UNet(3, 4), 'UNet'),
 #    (model_gcn, 'GCN'),
@@ -76,6 +78,10 @@ learning_rates = [0.1]
 class_weights = [
     # [1, 1, 1, 1]
     [1, 1, 1, 1], [1, 7.3**0.5, 2.5**0.5, 12.3**0.5], [1, 7.3**0.25, 2.5**0.25, 12.3**0.25]
+learning_rates = [0.1#, 0.2]
+class_weights = [
+    # [1, 1, 1, 1]
+    [1, 1, 1, 1]#, [1, 7.3**0.25, 2.5**0.25, 12.3**0.75]
 ]
 
 sweep_name = 'google_tuesday'
@@ -83,3 +89,7 @@ model_pipeline.create_jobs_to_run(sweep_name, base_params=base_params, models=mo
                                   learning_rates=learning_rates, class_weights=class_weights,
                                   force_remake=True)
 model_pipeline.execute_jobs(sweep_name, writer)
+
+model_pipeline.print_sweep_overview(sweep_name)
+model_pipeline.load_job_from_sweep(sweep_name, idx)
+model = job['model'].load_state_dict(job['result']['model_state'])
