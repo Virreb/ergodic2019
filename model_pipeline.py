@@ -257,6 +257,7 @@ def train_model(job, writer, verbose=True):
         'val_loss': best_val_loss,
         'percentage_error': best_percentage_error,
         'model_state': best_model_state,
+        'last_model_state': model.state_dict(),
         'run_time': run_time
     }
 
@@ -323,7 +324,7 @@ def execute_jobs(sweep_name):
 
         # get result from API
         print('\tTesting against API')
-        job['total_score'] = get_score_from_api(job, verbose=False)
+        job['result']['total_score'] = get_score_from_api(job, verbose=False)
         print('\tTest score:', job['total_score'])
 
         job['status'] = 'done'
@@ -353,7 +354,9 @@ def print_sweep_overview(sweep_name):
 
     for job_id in all_jobs:
         job = all_jobs[job_id]
-        print(f'Job {job_id} with model {job["model_name"]} got a val loss of {job["result"]["val_loss"]} and a test score of {job["total_score"]}')
+        print(f'Job {job_id} with model {job["model_name"]} got a val loss of {job["result"]["val_loss"]} and '
+              f'a test score of {job["result"]["total_score"]}')
+
 
 def load_job_from_sweep(sweep_name, idx):
     import pickle, time
