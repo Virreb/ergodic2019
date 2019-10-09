@@ -1,5 +1,5 @@
 
-def get_score_from_api(job, verbose=True):
+def get_score_from_api(job=None, model=None, model_name=None, verbose=True):
     import json
     import api
     import solutionHelper
@@ -10,7 +10,9 @@ def get_score_from_api(job, verbose=True):
     api_key = credentials['api-token']
     image_folder_path = 'api_images'
 
-    model = load_model(job)
+    if model is None:
+        model = load_model(job)
+        model_name = job['model_name']
 
     result = api.init_game(api_key)
     game_id = result["gameId"]
@@ -29,7 +31,7 @@ def get_score_from_api(job, verbose=True):
         image_names = solutionHelper.save_images_to_disk(zip_bytes, image_folder_path)
         for name in image_names:
             path = image_folder_path + "/" + name
-            image_solution = analyze_image(path, model)
+            image_solution = analyze_image(path, model, model_name=model_name)
             solutions.append({"ImageName": name,
                               "BuildingPercentage": image_solution["building_percentage"],
                               "RoadPercentage": image_solution["road_percentage"],
@@ -47,7 +49,7 @@ def get_score_from_api(job, verbose=True):
     return total_score
 
 
-def analyze_image(image_path, model):
+def analyze_image(image_path, model, model_name):
     from PIL import Image
     from torchvision import transforms
     from config import device
@@ -56,7 +58,12 @@ def analyze_image(image_path, model):
     pil_image = Image.open(image_path)
     image_tensor = pil_image_2_tensor(pil_image)
     image_tensor = image_tensor.to(device).unsqueeze(0)
-    out_bitmap, out_percentages = model(image_tensor)
+
+    if model_name.startswith('perc'):   # doesnt use percentage weight
+        out_percentages = model(image_tensor)
+        out_bitmap = None
+    else:
+        out_bitmap, out_percentages = model(image_tensor)
 
     return_dict = {"building_percentage": out_percentages[0, 2].item() * 100,
                    "water_percentage": out_percentages[0, 1].item() * 100,
@@ -74,6 +81,3 @@ def load_model(job):
 
     return model
 
-
-if __name__ == '__main__':
-    get_score_from_api(job='GCN.pth')

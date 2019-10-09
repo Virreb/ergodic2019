@@ -5,9 +5,7 @@ def train_percentage_model(job, writer, verbose=True):
     import torch
     from torch.optim.lr_scheduler import ReduceLROnPlateau
     import numpy as np
-    import torch.nn.functional as F
-    import plot
-    from help_functions import calculate_segmentation_percentages, calculate_segmentation_percentage_error, \
+    from help_functions import calculate_segmentation_percentage_error, \
         correct_mask_bitmaps_for_crop, ratio_loss_function
     from config import device, CLASS_ORDER
     import time
@@ -16,10 +14,8 @@ def train_percentage_model(job, writer, verbose=True):
     best_percentage_error = {}
 
     model = job['model'].float().to(device)
-    # class_weights = torch.tensor(job['class_weights']).float().to(device)
 
     # initiate
-    # criterion = torch.nn.CrossEntropyLoss(weight=class_weights)
     optimizer = torch.optim.Adam(model.parameters(), lr=job['learning']['rate'])
     scheduler = ReduceLROnPlateau(optimizer, patience=job['learning']['patience'], factor=job['learning']['decay'])
     data_loaders = get_data_loaders(job)
@@ -51,19 +47,10 @@ def train_percentage_model(job, writer, verbose=True):
 
                 with torch.set_grad_enabled(phase == 'train'):
                     class_fraction = model(image_input)
-                    # print(class_fraction.size())
-                    # print(bitmap.size())
-                    # TODO: redo ratio_loss function
-                    # TODO: redo segmentation percentage errors
-
                     ratio_loss = ratio_loss_function(class_fraction, bitmap)
-                    # print(ratio_loss.size())
-                    # print(class_fraction)
-                    # exit(0)
 
                     if phase == 'train':
                         ratio_loss.backward(retain_graph=True)
-                        # segment_loss.backward()
                         optimizer.step()
 
                 # Correct bitmaps to crop to get percentages to evaluate to
@@ -103,6 +90,8 @@ def train_percentage_model(job, writer, verbose=True):
                 if epoch_val_loss < best_percentage_loss:
                     if verbose:
                         print('\tThis is the best model so far! Saving it!')
+                    torch.save(model.state_dict(),
+                               f'models/trained/{job["sweep_name"]}_{job["model_name"]}_{job["id"]}.pth')
                     best_percentage_loss = epoch_val_loss
                     best_model_state = model.state_dict()
                     best_percentage_error = {class_name: np.mean([b[class_name] for b in batch_percentage_error])
@@ -183,7 +172,7 @@ def train_model(job, writer, verbose=True):
                     output, class_fraction = model(image_input)
 
                     segment_loss = criterion(output, bitmap)
-                    ratio_loss = ratio_loss_function(class_fraction, bitmap)
+                    ratio_loss = ratio_loss_function(class_fraction, bitmap)*job['perc_loss_weight']
 
                     if phase == 'train':
                         ratio_loss.backward(retain_graph=True)
@@ -235,7 +224,8 @@ def train_model(job, writer, verbose=True):
                 if epoch_val_loss < best_val_loss:
                     if verbose:
                         print('\tThis is the best model so far! Saving it!')
-                    # torch.save(model.state_dict(), job["path_to_model"])
+                    torch.save(model.state_dict(),
+                               f'models/trained/{job["sweep_name"]}_{job["model_name"]}_{job["id"]}.pth')
                     best_val_loss = epoch_val_loss
                     best_model_state = model.state_dict()
                     best_percentage_error = {class_name: np.mean([b[class_name] for b in batch_percentage_error])
@@ -262,7 +252,8 @@ def train_model(job, writer, verbose=True):
     }
 
 
-def create_jobs_to_run(sweep_name, base_params, models, learning_rates, class_weights, force_remake=False):
+def create_jobs_to_run(sweep_name, base_params, models, learning_rates, class_weights, perc_loss_weights,
+                       force_remake=False):
     import pickle, os
 
     jobs_spec_file_path = f'jobs/{sweep_name}.pkl'
@@ -274,19 +265,29 @@ def create_jobs_to_run(sweep_name, base_params, models, learning_rates, class_we
         idx = 0
         all_jobs = {}
         for model in models:
+            model_name = model[1]
+
+            if model_name.startswith('perc'):   # doesnt use percentage weight
+                tmp_perc_loss_weights = [1]
+            else:
+                tmp_perc_loss_weights = perc_loss_weights
+
             for lr in learning_rates:
                 for cw in class_weights:
-                    job = base_params.copy()
+                    for plw in tmp_perc_loss_weights:
+                        job = base_params.copy()
 
-                    job['id'] = idx
-                    job['model'] = model[0]
-                    job['model_name'] = model[1]
-                    job['learning']['rate'] = lr
-                    job['class_weights'] = cw
-                    job['status'] = None
+                        job['id'] = idx
+                        job['sweep_name'] = sweep_name
+                        job['model'] = model[0]
+                        job['model_name'] = model_name
+                        job['learning']['rate'] = lr
+                        job['class_weights'] = cw
+                        job['perc_loss_weight'] = plw
+                        job['status'] = None
 
-                    all_jobs[idx] = job
-                    idx += 1
+                        all_jobs[idx] = job
+                        idx += 1
 
         with open(jobs_spec_file_path, 'wb') as f:
             pickle.dump(all_jobs, f)
@@ -295,7 +296,7 @@ def create_jobs_to_run(sweep_name, base_params, models, learning_rates, class_we
 
 
 def execute_jobs(sweep_name):
-    import pickle, time
+    import pickle, time, datetime
     from main import get_score_from_api
     from config import device
     from torch.utils.tensorboard import SummaryWriter
@@ -313,8 +314,11 @@ def execute_jobs(sweep_name):
     jobs_to_run = [a for a in all_jobs.keys() if all_jobs[a]['status'] is None]
     for idx, job_id in enumerate(jobs_to_run):
         job = all_jobs[job_id]
-        print(f'\nStarting job_id:{job_id} with model:{job["model_name"]}. \t {idx+1}/{len(jobs_to_run)}')
-        writer = SummaryWriter()
+        print(f'\nStarting job_id {job_id} with model "{job["model_name"]}" \t {idx+1}/{len(jobs_to_run)}')
+
+        current_time = datetime.datetime.today().strftime('%d-%b-%H-%M')
+        log_name = f'runs/{sweep_name}_{job_id}-{job["model_name"]}_{current_time}'
+        writer = SummaryWriter(log_dir=log_name)
 
         # train model
         if job['model_name'].startswith('perc'):
@@ -325,7 +329,7 @@ def execute_jobs(sweep_name):
         # get result from API
         print('\tTesting against API')
         job['result']['total_score'] = get_score_from_api(job, verbose=False)
-        print('\tTest score:', job['total_score'])
+        print('\tTest score:', job['result']['total_score'])
 
         job['status'] = 'done'
         all_jobs[job_id] = job
