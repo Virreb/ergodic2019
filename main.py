@@ -83,3 +83,14 @@ def load_model(job):
 
     return model
 
+
+def load_model_pth(model_pth):
+    from UnetModel import UNet
+    from config import device
+    import torch
+
+    net = UNet()
+    net.load_state_dict(torch.load(model_pth, map_location=device))
+
+    return net
+
