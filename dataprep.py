@@ -30,11 +30,11 @@ class GLOBHEDataset(Dataset):
         try:
             water_mask = np.array(Image.open(self.building_paths[idx]))
         except:
-            building_mask = np.zeros((1024, 1024))
+            water_mask = np.zeros((1024, 1024))
         try:
             road_mask = np.array(Image.open(self.road_paths[idx]))
         except:
-            building_mask = np.zeros((1024, 1024))
+            road_mask = np.zeros((1024, 1024))
 
         integer_mask = np.zeros((1024, 1024))
         integer_mask[water_mask.sum(axis=2) > 0] = 1
