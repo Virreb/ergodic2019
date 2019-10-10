@@ -28,13 +28,13 @@ class GLOBHEDataset(Dataset):
         except:
             building_mask = np.zeros((1024, 1024, 3))
         try:
-            water_mask = np.array(Image.open(self.building_paths[idx]))
+            water_mask = np.array(Image.open(self.water_paths[idx]))
         except:
-            water_mask = np.zeros((1024, 1024,3))
+            water_mask = np.zeros((1024, 1024, 3))
         try:
             road_mask = np.array(Image.open(self.road_paths[idx]))
         except:
-            road_mask = np.zeros((1024, 1024,3))
+            road_mask = np.zeros((1024, 1024, 3))
 
         integer_mask = np.zeros((1024, 1024))
         integer_mask[water_mask.sum(axis=2) > 0] = 1
@@ -42,6 +42,17 @@ class GLOBHEDataset(Dataset):
         integer_mask[road_mask.sum(axis=2) > 0] = 3
         integer_mask.astype(int)
 
+        import matplotlib.pyplot as plt
+        plt.figure()
+        plt.imshow(np.array(Image.open(self.image_paths[idx])))
+        plt.figure()
+        plt.imshow(integer_mask)
+        plt.colorbar()
+        plt.figure()
+        plt.imshow(water_mask)
+        plt.colorbar()
+        plt.title('water')
+        plt.show()
 
         sample = {
             'image': Image.open(self.image_paths[idx]),
@@ -322,13 +333,15 @@ if __name__ == '__main__':
     # split_data_to_train_val_test(raw_base_path='data_raw/Training_dataset', new_base_path='data', val_ratio=0.3, test_ratio=0.2)
 
     train_dataset = GLOBHEDataset('data_raw', 'Training_dataset')
-    sample = train_dataset[8]
+    sample = train_dataset[2]
     toten = ToTensor()
-    sample = toten(sample)
+    samplet = toten(sample)
 
     import matplotlib.pyplot as plt
-
-    plt.imshow(sample['bitmap'].numpy())
+    plt.figure()
+    plt.imshow(sample['image'])
+    plt.figure()
+    plt.imshow(samplet['bitmap'].numpy())
     plt.colorbar()
     plt.show()
 
