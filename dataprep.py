@@ -13,16 +13,39 @@ class GLOBHEDataset(Dataset):
         import os
         self.image_names = os.listdir(f'{base_path}/{dataset_type}/images')
         self.image_paths = [f'{base_path}/{dataset_type}/images/{image_name}' for image_name in self.image_names]
-        self.bitmap_paths = [path.replace('images', 'integer_masks').replace('.jpg', '.png') for path in self.image_paths]
+        self.water_paths = [path.replace('images', 'Masks/water').replace('.jpg', '.png') for path in self.image_paths]
+        self.building_paths = [path.replace('images', 'Masks/building').replace('.jpg', '.png') for path in self.image_paths]
+        self.road_paths = [path.replace('images', 'Masks/road').replace('.jpg', '.png') for path in self.image_paths]
         self.transform = transform
 
     def __len__(self):
         return len(self.image_names)
 
     def __getitem__(self, idx):
+
+        try:
+            building_mask = np.array(Image.open(self.building_paths[idx]))
+        except:
+            building_mask = np.zeros((1024, 1024))
+        try:
+            water_mask = np.array(Image.open(self.building_paths[idx]))
+        except:
+            building_mask = np.zeros((1024, 1024))
+        try:
+            road_mask = np.array(Image.open(self.road_paths[idx]))
+        except:
+            building_mask = np.zeros((1024, 1024))
+
+        integer_mask = np.zeros((1024, 1024))
+        integer_mask[water_mask.sum(axis=2) > 0] = 1
+        integer_mask[building_mask.sum(axis=2) > 0] = 2
+        integer_mask[road_mask.sum(axis=2) > 0] = 3
+        integer_mask.astype(int)
+
+
         sample = {
             'image': Image.open(self.image_paths[idx]),
-            'bitmap': Image.open(self.bitmap_paths[idx]),
+            'bitmap': Image.fromarray(integer_mask),
         }
 
         if self.transform is not None:
@@ -94,7 +117,7 @@ class ToTensor:
 
         return {
             'image': self._built_in_to_tensor(image),
-            'bitmap': (255*self._built_in_to_tensor(bitmap)).long().squeeze(),
+            'bitmap': (self._built_in_to_tensor(bitmap)).long().squeeze(),
         }
 
 
@@ -298,40 +321,14 @@ if __name__ == '__main__':
     # TODO: Remove this?
     # split_data_to_train_val_test(raw_base_path='data_raw/Training_dataset', new_base_path='data', val_ratio=0.3, test_ratio=0.2)
 
-    train_dataset = GLOBHEDataset('data', 'train')
+    train_dataset = GLOBHEDataset('data_raw', 'Training_dataset')
     sample = train_dataset[8]
+    toten = ToTensor()
+    sample = toten(sample)
 
     import matplotlib.pyplot as plt
 
-    bitmap_array = np.array(sample['bitmap'])
-    class_perc = np.zeros(4)
-    for i in range(4):
-        class_perc[i] = np.sum(bitmap_array == i) / np.prod(bitmap_array.shape)
-    print(class_perc*100)
-    image_array = np.array(sample['image'])
-    print(sample['percentage'])
-
-    plt.subplot(1, 2, 1)
-    plt.imshow(bitmap_array)
+    plt.imshow(sample['bitmap'].numpy())
     plt.colorbar()
-    plt.clim(0, 3)
-    plt.subplot(1, 2, 2)
-    plt.imshow(image_array)
-    plt.colorbar()
-    plt.clim(0, 3)
     plt.show()
-    """
-    plt.figure()
-    rc = RandomCrop((512, 512))
-    sample = rc(sample)
-    plt.subplot(1,2,1)
-    plt.imshow(np.array(sample['bitmap']))
-    plt.colorbar()
-    plt.clim(0, 3)
-    plt.subplot(1,2,2)
-    plt.imshow(np.array(sample['image']))
-    plt.colorbar()
-    plt.clim(0, 3)
-    plt.show()"""
-
 

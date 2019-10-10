@@ -52,12 +52,18 @@ def get_score_from_api(job=None, model=None, model_name=None, verbose=True):
 def analyze_image(image_path, model, model_name):
     from PIL import Image
     from torchvision import transforms
+    from dataprep import RescalePretrained
     from config import device
     import torch
     pil_image_2_tensor = transforms.ToTensor()
 
     pil_image = Image.open(image_path)
     image_tensor = pil_image_2_tensor(pil_image)
+    mean = [0.485, 0.456, 0.406]
+    std = [0.229, 0.224, 0.225]
+    for i in range(3):
+        image_tensor[i] = (image_tensor[i]-mean[i])/std[i]
+
     image_tensor = image_tensor.to(device).unsqueeze(0)
 
     with torch.no_grad():
@@ -89,8 +95,16 @@ def load_model_pth(model_pth):
     from config import device
     import torch
 
-    net = UNet()
+    net = UNet(3, 4).float().to(device).eval()
     net.load_state_dict(torch.load(model_pth, map_location=device))
 
     return net
 
+if __name__=='__main__':
+    import model_pipeline
+    # net = load_model_pth('models/trained/unet_2019-09-29_1251.pth')
+    # get_score_from_api(model=net, model_name='unajt')
+    for idx in range(3):
+        job = model_pipeline.load_job_from_sweep('google_tuesday', idx)
+        print(job['model_name'], job['class_weights'], job['learning']['rate'])
+        get_score_from_api(job=job)

@@ -62,33 +62,39 @@ base_params = {
 # base_params = params_isak
 
 # init models to sweep
-model_gcn = GCN(4)
-for tmp_layer in [model_gcn.layer0, model_gcn.layer1, model_gcn.layer2, model_gcn.layer3, model_gcn.layer4]:
-    for param in tmp_layer.parameters():
-        param.requires_grad = False
 
-deeplab_1 = DeeplabFork(freezed_backbone=False, freezed_aspp=False)
-deeplab_2 = DeeplabFork(freezed_backbone=True, freezed_aspp=False)
-deeplab_3 = DeeplabFork(freezed_backbone=True, freezed_aspp=True)
+
+#deeplab_1 = DeeplabFork(freezed_backbone=False, freezed_aspp=False)
+deeplab = DeeplabFork(freezed_backbone=True, freezed_aspp=False)
+#deeplab_3 = DeeplabFork(freezed_backbone=True, freezed_aspp=True)
+
+job = model_pipeline.load_job_from_sweep('google_tuesday', 0)
+deeplab.load_state_dict(job['result']['model_state'], map_location=device)
+
+for param in deeplab.parameters():
+    param.requires_grad = True
+for param in deeplab.backbone.parameters():
+    param.requires_grad = False
+
 
 models = [
-    (UNet(3, 4), 'UNet'),
+    #(UNet(3, 4), 'UNet'),
     # (model_gcn, 'GCN'),
     # (deeplab_1, 'deeplab'),
     # (deeplab_3, 'deeplab_fr_bb_fr_aspp'),
-    (get_resnet_101(4), 'perc_resnet101'),
-    (deeplab_2, 'deeplab_fr_bb'),
+    #(get_resnet_101(4), 'perc_resnet101'),
+    (deeplab, 'deeplab_fr_bb'),
 ]
 
 # set parameters to sweep
-perc_loss_weights = [1, 10, 20, 40]
-learning_rates = [0.05]
+perc_loss_weights = [0]
+learning_rates = [0.1]
 class_weights = [
     [1, 1, 1, 1]
     # [1, 1, 1, 1], [1, 7.3**0.5, 2.5**0.5, 12.3**0.5], [1, 7.3**0.25, 2.5**0.25, 12.3**0.25]
 ]
 
-sweep_name = 'runs_thursday_2'
+sweep_name = 'runs_thursday_3'
 model_pipeline.create_jobs_to_run(sweep_name, base_params=base_params, models=models,
                                   learning_rates=learning_rates, class_weights=class_weights,
                                   perc_loss_weights=perc_loss_weights,
