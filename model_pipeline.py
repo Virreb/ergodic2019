@@ -128,6 +128,7 @@ def train_model(job, writer, verbose=True):
         correct_mask_bitmaps_for_crop, ratio_loss_function
     from config import device
     import time
+    from main import get_score_from_api
 
     best_val_loss = 10000000000
     best_percentage_error = {}
@@ -237,6 +238,10 @@ def train_model(job, writer, verbose=True):
                         print('\tOverfitting?')
 
             writer.flush()
+
+        # get score from API
+        get_score_from_api(model=model, model_name=job['model_name'])
+
         if verbose:
             print(f'\tEpoch done, took {round((time.time() - epoch_start_time)/60, 2)} min')
 
