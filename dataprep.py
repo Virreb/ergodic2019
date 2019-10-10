@@ -141,10 +141,11 @@ def split_data_to_train_val_test(raw_base_path, new_base_path, val_ratio=0.3, te
 
     # Considition format
     raw_image_path = raw_base_path + '/Images'
-    raw_mask_path = raw_base_path + '/Masks/all'
+    raw_mask_path = raw_base_path + '/Masks'
     raw_perc_path = raw_base_path + '/Percentages'
 
     split_names = ['train', 'val', 'test']
+    mask_types = ['all', 'building', 'road', 'water']
 
     new_train_val_test_folders = [new_base_path + '/' + tmp for tmp in split_names]
 
@@ -158,7 +159,11 @@ def split_data_to_train_val_test(raw_base_path, new_base_path, val_ratio=0.3, te
                        [f + '/masks' for f in new_train_val_test_folders] + \
                        [f + '/images' for f in new_train_val_test_folders] + \
                        [f + '/percentages' for f in new_train_val_test_folders] + \
-                       [f + '/integer_masks' for f in new_train_val_test_folders]
+                       [f + '/integer_masks' for f in new_train_val_test_folders] + \
+                       [f + '/masks/all' for f in new_train_val_test_folders] + \
+                       [f + '/masks/water' for f in new_train_val_test_folders] + \
+                       [f + '/masks/building' for f in new_train_val_test_folders] + \
+                       [f + '/masks/road' for f in new_train_val_test_folders]
 
     for folder in folders_to_create:
         os.mkdir(folder)
@@ -189,10 +194,10 @@ def split_data_to_train_val_test(raw_base_path, new_base_path, val_ratio=0.3, te
         print(f'\nCopying {split_name} data')
 
         for image_name in tqdm(image_splits[idx]):
-
             # copy image
             new_image_path = new_train_val_test_folders[idx] + '/images/' + image_name
-            shutil.copy(raw_image_path + '/' + image_name, new_image_path)
+            current_image_path = raw_image_path + '/' + image_name
+            shutil.copy(current_image_path, new_image_path)
 
             # images may be of different size, pad it out
             image_array = mpimg.imread(new_image_path)
@@ -209,20 +214,28 @@ def split_data_to_train_val_test(raw_base_path, new_base_path, val_ratio=0.3, te
 
             # copy masks
             mask_name = image_name.replace('.jpg', '.png')
-            new_mask_path = new_train_val_test_folders[idx] + '/masks/' + mask_name
-            shutil.copy(raw_mask_path + '/' + mask_name, new_mask_path)
-
+            for mask_type in mask_types:
+                new_mask_path = new_train_val_test_folders[idx] + f'/masks/{mask_type}/{mask_name}'
+                current_mask_path = raw_mask_path + f'/{mask_type}/{mask_name}'
+                try:
+                    shutil.copy(current_mask_path, new_mask_path)
+                except(FileNotFoundError):
+                    print('NEJ')
             # copy percentages
             perc_name = image_name.replace('.jpg', '.json')
             new_perc_path = new_train_val_test_folders[idx] + '/percentages/' + perc_name
-            shutil.copy(raw_perc_path + '/' + perc_name, new_perc_path)
+            current_perc_path = raw_perc_path + '/' + perc_name
+            try:
+                shutil.copy(current_perc_path, new_perc_path)
+            except(FileNotFoundError):
+                print('NEJ')
 
             # also create integer bitmaps from the masks
-            image_array = mpimg.imread(new_mask_path)
-            integer_bitmap = generate_integer_bitmaps(image_array)
+            # image_array = mpimg.imread(new_mask_path)
+            # integer_bitmap = generate_integer_bitmaps(image_array)
 
-            new_integer_mask_path = new_train_val_test_folders[idx] + '/integer_masks/' + mask_name
-            imageio.imsave(new_integer_mask_path, integer_bitmap.astype(np.uint8))
+            # new_integer_mask_path = new_train_val_test_folders[idx] + '/integer_masks/' + mask_name
+            # imageio.imsave(new_integer_mask_path, integer_bitmap.astype(np.uint8))
 
 
 def generate_integer_bitmaps(rgb_bitmap):
