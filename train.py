@@ -62,10 +62,7 @@ base_params = {
 # base_params = params_isak
 
 # init models to sweep
-model_gcn = GCN(4)
-for tmp_layer in [model_gcn.layer0, model_gcn.layer1, model_gcn.layer2, model_gcn.layer3, model_gcn.layer4]:
-    for param in tmp_layer.parameters():
-        param.requires_grad = False
+
 
 #deeplab_1 = DeeplabFork(freezed_backbone=False, freezed_aspp=False)
 deeplab = DeeplabFork(freezed_backbone=True, freezed_aspp=False)
