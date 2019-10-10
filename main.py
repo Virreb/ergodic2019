@@ -89,8 +89,11 @@ def load_model_pth(model_pth):
     from config import device
     import torch
 
-    net = UNet()
+    net = UNet(3, 4).float().to(device).eval()
     net.load_state_dict(torch.load(model_pth, map_location=device))
 
     return net
 
+if __name__=='__main__':
+    net = load_model_pth('models/trained/unet_2019-09-29_1251.pth')
+    get_score_from_api(model=net, model_name='unajt')
