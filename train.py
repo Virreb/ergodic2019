@@ -18,7 +18,7 @@ base_params = {
         'patience': 2,
         'decay': 0.2
     },
-    'num_epochs': 1,
+    'num_epochs': 30,
     'nbr_cpu': 14,
     'device': device,
     'image_size': {
@@ -49,8 +49,8 @@ base_params = {
         },
         'deeplab_fr_bb': {
             'train': 22,
-            'val': 10,
-            'test': 12,
+            'val': 6,
+            'test': 6,
         },
         'deeplab_fr_bb_fr_aspp': {
             'train': 24,
@@ -75,20 +75,20 @@ models = [
     (UNet(3, 4), 'UNet'),
     # (model_gcn, 'GCN'),
     # (deeplab_1, 'deeplab'),
-    (deeplab_2, 'deeplab_fr_bb'),
     # (deeplab_3, 'deeplab_fr_bb_fr_aspp'),
     (get_resnet_101(4), 'perc_resnet101'),
+    (deeplab_2, 'deeplab_fr_bb'),
 ]
 
 # set parameters to sweep
-perc_loss_weights = [1, 10, 20]
+perc_loss_weights = [1, 10, 20, 40]
 learning_rates = [0.05]
 class_weights = [
     [1, 1, 1, 1]
     # [1, 1, 1, 1], [1, 7.3**0.5, 2.5**0.5, 12.3**0.5], [1, 7.3**0.25, 2.5**0.25, 12.3**0.25]
 ]
 
-sweep_name = 'runs_thursday'
+sweep_name = 'runs_thursday_2'
 model_pipeline.create_jobs_to_run(sweep_name, base_params=base_params, models=models,
                                   learning_rates=learning_rates, class_weights=class_weights,
                                   perc_loss_weights=perc_loss_weights,

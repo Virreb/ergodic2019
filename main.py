@@ -53,17 +53,19 @@ def analyze_image(image_path, model, model_name):
     from PIL import Image
     from torchvision import transforms
     from config import device
+    import torch
     pil_image_2_tensor = transforms.ToTensor()
 
     pil_image = Image.open(image_path)
     image_tensor = pil_image_2_tensor(pil_image)
     image_tensor = image_tensor.to(device).unsqueeze(0)
 
-    if model_name.startswith('perc'):   # doesnt use percentage weight
-        out_percentages = model(image_tensor)
-        out_bitmap = None
-    else:
-        out_bitmap, out_percentages = model(image_tensor)
+    with torch.no_grad():
+        if model_name.startswith('perc'):   # doesnt use percentage weight
+            out_percentages = model(image_tensor)
+            out_bitmap = None
+        else:
+            out_bitmap, out_percentages = model(image_tensor)
 
     return_dict = {"building_percentage": out_percentages[0, 2].item() * 100,
                    "water_percentage": out_percentages[0, 1].item() * 100,

@@ -326,6 +326,10 @@ def execute_jobs(sweep_name):
         else:
             job['result'] = train_model(job, writer, verbose=True)
 
+        # update all jobs list if want to restart midway
+        with open(jobs_spec_file_path, 'wb') as f:
+            pickle.dump(all_jobs, f)
+
         # get result from API
         print('\tTesting against API')
         job['result']['total_score'] = get_score_from_api(job, verbose=False)
