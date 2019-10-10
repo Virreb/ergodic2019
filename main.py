@@ -101,5 +101,10 @@ def load_model_pth(model_pth):
     return net
 
 if __name__=='__main__':
-    net = load_model_pth('models/trained/unet_2019-09-29_1251.pth')
-    get_score_from_api(model=net, model_name='unajt')
+    import model_pipeline
+    # net = load_model_pth('models/trained/unet_2019-09-29_1251.pth')
+    # get_score_from_api(model=net, model_name='unajt')
+    for idx in range(3):
+        job = model_pipeline.load_job_from_sweep('google_tuesday', idx)
+        print(job['model_name'], job['class_weights'], job['learning']['rate'])
+        get_score_from_api(job=job)

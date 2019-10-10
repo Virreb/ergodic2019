@@ -362,8 +362,8 @@ def print_sweep_overview(sweep_name):
 
     for job_id in all_jobs:
         job = all_jobs[job_id]
-        print(f'Job {job_id} with model {job["model_name"]} got a val loss of {job["result"]["val_loss"]} and '
-              f'a test score of {job["result"]["total_score"]}')
+        print(f'Job {job_id} with model {job["model_name"]} got a val loss of {job["result"]["val_loss"]} and ')
+    #          f'a test score of {job["result"]["total_score"]}')
 
 
 def load_job_from_sweep(sweep_name, idx):
